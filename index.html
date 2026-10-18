@@ -1,300 +1,298 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>에어드랍 초고화질 영상 생성기</title>
-  
-  <!-- 화면 캡처 라이브러리 (gifshot은 삭제하고 고화질 캡처만 사용합니다) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  
-  <style>
-    body {
-      display: flex; flex-direction: column; align-items: center;
-      background-color: #e5e5ea; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      margin: 0; padding: 40px 20px;
-    }
-
-    /* 1. 조종석 */
-    .control-panel {
-      background: white; padding: 24px; border-radius: 16px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.1); width: 100%; max-width: 400px;
-      margin-bottom: 30px; box-sizing: border-box;
-    }
-    .control-panel h3 { margin: 0 0 20px 0; font-size: 18px; color: #333; text-align: center; }
-    .input-group { margin-bottom: 18px; }
-    .input-group label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #555; }
-    .input-group input[type="text"], .input-group input[type="file"] { 
-      width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 14px; 
-    }
-    .input-group input[type="range"] { width: 100%; margin-top: 5px; }
-    
-    .btn-generate {
-      width: 100%; padding: 14px; background: #007aff; color: white;
-      border: none; border-radius: 10px; font-size: 16px; font-weight: bold;
-      cursor: pointer; margin-top: 10px; transition: background 0.2s;
-    }
-    .btn-generate:hover { background: #005bb5; }
-    
-    #loading-text {
-      display: none; text-align: center; color: #ff3b30; font-weight: bold;
-      margin-top: 15px; font-size: 14px; line-height: 1.5;
-    }
-
-    /* 2. 실제 영상으로 녹화될 영역 */
-    #video-frame {
-      width: 360px; height: 482px;
-      background: #000; /* 전체화면 뜰 때 배경을 검은색으로(아이폰 갤러리 감성) */
-      position: relative; border-radius: 20px; overflow: hidden;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-    }
-
-    /* 에어드랍 UI 본체 */
-    #airdrop-ui {
-      width: 100%; height: 100%; display: flex; flex-direction: column;
-      background: white; position: absolute; top: 0; left: 0;
-      z-index: 10; transform-origin: center center;
-    }
-
-    .ad-header {
-      background: #f5f5f5; display: flex; flex-direction: column;
-      justify-content: center; align-items: center; padding: 22px 0 18px 0;
-    }
-    .ad-header .title { font-size: 26px; font-weight: bold; color: #000; margin-bottom: 6px; letter-spacing: -0.5px; }
-    .ad-header .subtitle { font-size: 15px; color: #000; }
-
-    /* ⭐️ 사진 눌림 방지를 위해 img 태그 대신 background-image 사용 */
-    .ad-image-container {
-      width: 100%; aspect-ratio: 1 / 1; 
-      background: #fff; display: flex; justify-content: center; align-items: center; overflow: hidden;
-    }
-    #ad-preview-image {
-      width: 100%; height: 100%;
-      background-size: cover; /* 정사각형에 꽉 차게 */
-      background-position: 50% 50%; background-repeat: no-repeat;
-      transform: scale(1); /* 줌 기능용 */
-    }
-
-    .ad-footer { height: 56px; display: flex; background: #f5f5f5; border-top: 1px solid #e0e0e0; }
-    .ad-btn { flex: 1; display: flex; justify-content: center; align-items: center; font-size: 17px; color: #007aff; cursor: pointer; }
-    .ad-btn.decline { border-right: 1px solid #e0e0e0; }
-
-    /* 수락 후 보여질 전체 화면 (마찬가지로 background-image 사용) */
-    #fullscreen-image {
-      width: 100%; height: 100%;
-      background-size: contain; /* ⭐️ 원본 비율 유지, 절대 안 눌림! */
-      background-position: center center; background-repeat: no-repeat;
-      background-color: #000; /* 여백은 검은색으로 깔끔하게 */
-      position: absolute; top: 0; left: 0; z-index: 5;
-      display: none; transform-origin: center center;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>에어드랍 초고화질 영상 생성기</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    display: flex; flex-direction: column; align-items: center;
+    background: #e5e5ea; margin: 0; padding: 32px 16px;
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", Roboto, sans-serif;
+  }
+  .panel {
+    background: #fff; padding: 22px; border-radius: 16px; width: 100%; max-width: 400px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.1); margin-bottom: 24px;
+  }
+  .panel h3 { margin: 0 0 18px; font-size: 18px; text-align: center; color: #333; }
+  .group { margin-bottom: 16px; }
+  .group label { display: block; font-size: 13px; font-weight: bold; color: #555; margin-bottom: 8px; }
+  .group input[type=text], .group input[type=file] {
+    width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px;
+  }
+  .group input[type=range] { width: 100%; }
+  button {
+    width: 100%; padding: 14px; border: 0; border-radius: 10px; font-size: 16px; font-weight: bold;
+    background: #007aff; color: #fff; cursor: pointer; margin-top: 8px;
+  }
+  button:disabled { background: #9ec9ff; cursor: default; }
+  button.secondary { background: #e5e5ea; color: #007aff; }
+  #status { text-align: center; font-size: 14px; color: #ff3b30; font-weight: bold; margin-top: 12px; min-height: 20px; line-height: 1.5; }
+  #stage { width: 100%; max-width: 360px; }
+  #canvas {
+    display: block; width: 100%; height: auto; aspect-ratio: 1080 / 1446;
+    border-radius: 20px; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,.15);
+  }
+  #result { display: none; width: 100%; max-width: 400px; margin-top: 24px; }
+  #result video { width: 100%; max-width: 360px; display: block; margin: 0 auto 8px; border-radius: 16px; background: #000; }
+  #result p { font-size: 13px; color: #555; text-align: center; margin: 4px 0 0; }
+</style>
 </head>
 <body>
 
-  <!-- 조종석 -->
-  <div class="control-panel">
-    <h3>⚙️ 에어드랍 상세 설정 (고화질 영상)</h3>
-    <div class="input-group">
-      <label>1. 보내는 사람 이름</label>
-      <input type="text" id="name-input" value="🐈‍⬛❤️" placeholder="이름이나 이모티콘">
-    </div>
-    <div class="input-group">
-      <label>2. 나타날 사진 업로드 (원본 화질 유지됨!)</label>
-      <input type="file" id="image-input" accept="image/*">
-    </div>
-    <div class="input-group">
-      <label>3. 에어드랍 창 사진 확대(Zoom) 조절</label>
-      <input type="range" id="zoom-slider" min="1" max="3" step="0.05" value="1">
-    </div>
-    <div class="input-group">
-      <label>4. 사진 상하 위치 조절 (위/아래) ↕️</label>
-      <input type="range" id="y-pos-slider" min="0" max="100" step="1" value="50">
-    </div>
-    <button class="btn-generate" id="generate-btn" onclick="startVideoGeneration()">🎬 이대로 고화질 영상 저장하기</button>
-    <div id="loading-text">
-      고화질 렌더링 중입니다... 🏃‍♂️💨<br>
-      (약 10초 정도 소요됩니다. 창을 닫지 마세요!)
-    </div>
+<div class="panel">
+  <h3>⚙️ 에어드랍 상세 설정 (고화질 영상)</h3>
+  <div class="group">
+    <label>1. 보내는 사람 이름</label>
+    <input type="text" id="name" value="🐈‍⬛❤️" placeholder="이름이나 이모티콘">
   </div>
-
-  <!-- 촬영될 프레임 영역 -->
-  <div id="video-frame">
-    <div id="airdrop-ui">
-      <div class="ad-header">
-        <div class="title">AirDrop</div>
-        <div class="subtitle"><span id="sender-name">🐈‍⬛❤️</span>님이 사진을 공유하려고 합니다.</div>
-      </div>
-      <div class="ad-image-container">
-        <!-- img 태그 대신 div를 써서 비율이 찌그러지지 않게 방어! -->
-        <div id="ad-preview-image"></div>
-      </div>
-      <div class="ad-footer">
-        <div class="ad-btn decline">Decline</div>
-        <div class="ad-btn accept" id="accept-btn">Accept</div>
-      </div>
-    </div>
-    
-    <div id="fullscreen-image"></div>
+  <div class="group">
+    <label>2. 나타날 사진 업로드 (원본 화질 유지)</label>
+    <input type="file" id="file" accept="image/*">
   </div>
+  <div class="group">
+    <label>3. 에어드랍 창 사진 확대(Zoom)</label>
+    <input type="range" id="zoom" min="1" max="3" step="0.05" value="1">
+  </div>
+  <div class="group">
+    <label>4. 사진 상하 위치 ↕️</label>
+    <input type="range" id="ypos" min="0" max="100" step="1" value="50">
+  </div>
+  <button id="go">🎬 이대로 고화질 영상 만들기</button>
+  <div id="status"></div>
+</div>
 
-  <script>
-    let hasUploadedImage = false;
+<div id="stage"><canvas id="canvas" width="1080" height="1446"></canvas></div>
 
-    // 이름 반영
-    document.getElementById('name-input').addEventListener('input', function() {
-      document.getElementById('sender-name').innerText = this.value;
-    });
+<div class="panel" id="result">
+  <video id="player" controls playsinline loop></video>
+  <button id="share">📱 사진첩에 저장 / 공유</button>
+  <button id="download" class="secondary">⬇️ 파일로 다운로드</button>
+  <p>아이폰: 공유 시트에서 "비디오 저장"을 누르면 사진첩에 저장됩니다.</p>
+</div>
 
-    // 사진 반영 (background-image로 넣어줌)
-    document.getElementById('image-input').addEventListener('change', function(event) {
-      if (event.target.files && event.target.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          const imgUrl = e.target.result;
-          document.getElementById('ad-preview-image').style.backgroundImage = `url('${imgUrl}')`;
-          document.getElementById('fullscreen-image').style.backgroundImage = `url('${imgUrl}')`;
-          hasUploadedImage = true;
-        };
-        reader.readAsDataURL(event.target.files[0]);
-      }
-    });
+<script>
+(() => {
+  // ===== 기본 설정 =====
+  const W = 1080, H = 1446;          // 출력 해상도
+  const LW = 360, LH = 482;          // 논리 좌표 (원본 레이아웃)
+  const S = W / LW;                  // 3배
+  const HEADER_H = 66, FOOT_H = 56, IMG_SIZE = 360; // 66 + 360 + 56 = 482 (항상 고정)
+  const FPS = 30;
+  const T_CLICK = 1000, T_TRANS = 1200, TRANS_DUR = 500, T_END = 3200; // ms
+  const MAX_SIDE = 2400;             // 업로드 이미지 최대 변 길이
 
-    // 줌 조절
-    document.getElementById('zoom-slider').addEventListener('input', function() {
-      document.getElementById('ad-preview-image').style.transform = `scale(${this.value})`;
-    });
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const $ = id => document.getElementById(id);
+  const FONT = '-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", Roboto, sans-serif';
 
-    // 상하 위치 조절
-    document.getElementById('y-pos-slider').addEventListener('input', function() {
-      document.getElementById('ad-preview-image').style.backgroundPosition = `50% ${this.value}%`;
-    });
+  let img = null;       // 다운스케일된 소스 (canvas 또는 bitmap)
+  let recording = false;
+  let lastUrl = null, lastFile = null;
 
-    // 🎬 대망의 고화질 영상 녹화 로직 (GIF ➡️ MP4/WebM)
-    async function startVideoGeneration() {
-      if (!hasUploadedImage) {
-        alert("먼저 영상에 나올 사진을 업로드해주세요!"); return;
-      }
-
-      document.getElementById('generate-btn').style.display = 'none';
-      document.getElementById('loading-text').style.display = 'block';
-
-      const videoFrame = document.getElementById('video-frame');
-      const airdropUi = document.getElementById('airdrop-ui');
-      const acceptBtn = document.getElementById('accept-btn');
-      const fullImage = document.getElementById('fullscreen-image');
-      
-      // 초고화질 옵션 (scale: 3 은 해상도를 3배로 뻥튀기함)
-      const options = { scale: 3, useCORS: true, backgroundColor: '#000' };
-
-      try {
-        // [1] 미리 각 장면들을 고화질 캔버스로 캡처해 둡니다 (속도 및 프레임 확보)
-        
-        // 씬 1: 기본 대기
-        const idleCanvas = await html2canvas(videoFrame, options);
-        
-        // 씬 2: 버튼 클릭
-        acceptBtn.style.backgroundColor = '#d1d1d6';
-        const clickCanvas = await html2canvas(videoFrame, options);
-
-        // 씬 3: 트랜지션 (15장의 부드러운 전환 프레임)
-        const transitionCanvases = [];
-        fullImage.style.display = 'block';
-        fullImage.style.opacity = '0';
-        fullImage.style.transform = 'scale(1.05)';
-        
-        for (let i = 1; i <= 15; i++) {
-          let p = i / 15;
-          airdropUi.style.opacity = (1 - p).toString();
-          airdropUi.style.transform = `scale(${1 - (p * 0.05)})`;
-          fullImage.style.opacity = p.toString();
-          fullImage.style.transform = `scale(${1.05 - (p * 0.05)})`;
-          
-          await new Promise(r => setTimeout(r, 10)); // UI 렌더링 대기
-          transitionCanvases.push(await html2canvas(videoFrame, options));
-        }
-
-        // 씬 4: 완료 (전체 화면)
-        airdropUi.style.display = 'none'; 
-        fullImage.style.opacity = '1';
-        fullImage.style.transform = 'scale(1)';
-        const finalCanvas = await html2canvas(videoFrame, options);
-
-        // [2] 캡처해둔 화면들을 동영상으로 굽기 시작! (MediaRecorder API)
-        const renderCanvas = document.createElement('canvas');
-        renderCanvas.width = idleCanvas.width;
-        renderCanvas.height = idleCanvas.height;
-        const ctx = renderCanvas.getContext('2d');
-
-        // 초당 30프레임 설정
-        const stream = renderCanvas.captureStream(30); 
-        
-        // 브라우저에 맞는 최적의 비디오 포맷 찾기 (MP4 우선)
-        let mimeType = 'video/mp4';
-        let ext = 'mp4';
-        if (!MediaRecorder.isTypeSupported(mimeType)) {
-          if (MediaRecorder.isTypeSupported('video/webm')) {
-            mimeType = 'video/webm'; ext = 'webm';
-          } else {
-            mimeType = ''; // 브라우저 기본값
-          }
-        }
-
-        // 고화질 비트레이트 설정 (8Mbps)
-        const recOptions = mimeType ? { mimeType: mimeType, videoBitsPerSecond: 8000000 } : { videoBitsPerSecond: 8000000 };
-        const mediaRecorder = new MediaRecorder(stream, recOptions);
-        const chunks = [];
-
-        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-        mediaRecorder.onstop = () => {
-          const blob = new Blob(chunks, { type: mimeType || 'video/mp4' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `airdrop-hq-video.${ext}`; // 영상 파일로 다운로드!
-          link.click();
-
-          // UI 원상복구
-          acceptBtn.style.backgroundColor = 'transparent';
-          airdropUi.style.display = 'flex'; airdropUi.style.opacity = '1'; airdropUi.style.transform = 'scale(1)';
-          fullImage.style.display = 'none'; fullImage.style.opacity = '1'; fullImage.style.transform = 'scale(1)';
-          
-          document.getElementById('generate-btn').style.display = 'block';
-          document.getElementById('loading-text').style.display = 'none';
-        };
-
-        mediaRecorder.start();
-
-        // 캔버스에 프레임을 연속으로 그려주는 마법의 함수
-        const drawFrames = (canvasImage, count) => {
-          return new Promise(resolve => {
-            let drawn = 0;
-            const interval = setInterval(() => {
-              ctx.drawImage(canvasImage, 0, 0);
-              drawn++;
-              if (drawn >= count) { clearInterval(interval); resolve(); }
-            }, 1000 / 30); // 30fps
-          });
-        };
-
-        // 타이밍에 맞춰 순서대로 영상에 그리기
-        await drawFrames(idleCanvas, 30); // 대기 1초
-        await drawFrames(clickCanvas, 6); // 클릭 0.2초
-        for (let tCanvas of transitionCanvases) {
-          await drawFrames(tCanvas, 1); // 전환 이펙트
-        }
-        await drawFrames(finalCanvas, 45); // 완성 화면 1.5초
-
-        // 녹화 종료
-        mediaRecorder.stop();
-
-      } catch (error) {
-        console.error(error);
-        alert("영상 생성 중 에러가 발생했습니다. 브라우저를 업데이트하거나 새로고침 후 시도해주세요.");
-        document.getElementById('generate-btn').style.display = 'block';
-        document.getElementById('loading-text').style.display = 'none';
-      }
+  // ===== 이미지 로드 (한 번만 디코딩 + 크기 제한 + EXIF 회전) =====
+  async function loadImage(file) {
+    let src;
+    try {
+      src = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    } catch (e) {
+      src = await new Promise((res, rej) => {
+        const i = new Image(), u = URL.createObjectURL(file);
+        i.onload = () => { res(i); };
+        i.onerror = rej;
+        i.src = u;
+      });
     }
-  </script>
+    const w = src.width || src.naturalWidth, h = src.height || src.naturalHeight;
+    const k = Math.min(1, MAX_SIDE / Math.max(w, h));
+    const c = document.createElement('canvas');
+    c.width = Math.round(w * k); c.height = Math.round(h * k);
+    const cx = c.getContext('2d');
+    cx.imageSmoothingQuality = 'high';
+    cx.drawImage(src, 0, 0, c.width, c.height);
+    if (src.close) src.close();
+    return c;
+  }
+
+  // ===== 그리기 유틸 =====
+  function drawCover(x, y, w, h, zoom, posY) {
+    const s = Math.max(w / img.width, h / img.height) * zoom;
+    const dw = img.width * s, dh = img.height * s;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) * posY, dw, dh);
+    ctx.restore();
+  }
+
+  function drawContain() {
+    const s = Math.min(LW / img.width, LH / img.height);
+    const dw = img.width * s, dh = img.height * s;
+    ctx.drawImage(img, (LW - dw) / 2, (LH - dh) / 2, dw, dh);
+  }
+
+  function fitText(text, maxW, size, weight) {
+    let s = size;
+    ctx.font = `${weight} ${s}px ${FONT}`;
+    while (ctx.measureText(text).width > maxW && s > 8) {
+      s -= 0.5; ctx.font = `${weight} ${s}px ${FONT}`;
+    }
+  }
+
+  function drawAirdropUI(pressed) {
+    const zoom = parseFloat($('zoom').value);
+    const posY = parseInt($('ypos').value, 10) / 100;
+    const name = $('name').value;
+
+    // 배경
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, LW, LH);
+
+    // 헤더
+    ctx.fillStyle = '#f5f5f5'; ctx.fillRect(0, 0, LW, HEADER_H);
+    ctx.fillStyle = '#000'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `bold 22px ${FONT}`;
+    ctx.fillText('AirDrop', LW / 2, 24);
+    fitText(`${name}님이 사진을 공유하려고 합니다.`, LW - 20, 14, 'normal');
+    ctx.fillText(`${name}님이 사진을 공유하려고 합니다.`, LW / 2, 47);
+
+    // 사진 (정사각형 고정)
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, HEADER_H, LW, IMG_SIZE);
+    if (img) drawCover(0, HEADER_H, LW, IMG_SIZE, zoom, posY);
+
+    // 푸터
+    const fy = HEADER_H + IMG_SIZE;
+    ctx.fillStyle = '#f5f5f5'; ctx.fillRect(0, fy, LW, FOOT_H);
+    if (pressed) { ctx.fillStyle = '#d1d1d6'; ctx.fillRect(LW / 2, fy, LW / 2, FOOT_H); }
+    ctx.fillStyle = '#e0e0e0';
+    ctx.fillRect(0, fy, LW, 1);
+    ctx.fillRect(LW / 2 - 0.5, fy, 1, FOOT_H);
+    ctx.fillStyle = '#007aff'; ctx.font = `normal 17px ${FONT}`;
+    ctx.fillText('Decline', LW / 4, fy + FOOT_H / 2);
+    ctx.fillText('Accept', LW * 3 / 4, fy + FOOT_H / 2);
+  }
+
+  // t(ms) 시점의 장면을 그린다 — 미리보기와 녹화가 같은 함수를 씀 (WYSIWYG)
+  function drawScene(t) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+
+    const p = Math.min(1, Math.max(0, (t - T_TRANS) / TRANS_DUR));
+    const pressed = t >= T_CLICK;
+
+    const place = (scale, alpha, fn) => {
+      ctx.save();
+      ctx.setTransform(S * scale, 0, 0, S * scale, W / 2 - (LW / 2) * S * scale, H / 2 - (LH / 2) * S * scale);
+      ctx.globalAlpha = alpha;
+      fn();
+      ctx.restore();
+    };
+
+    if (p > 0 && img) place(1.05 - p * 0.05, p, drawContain);
+    if (p < 1) place(1 - p * 0.05, 1 - p, () => drawAirdropUI(pressed));
+  }
+
+  // ===== 녹화 =====
+  function pickMime() {
+    const list = [
+      'video/mp4;codecs=avc1.640028', 'video/mp4;codecs=avc1', 'video/mp4',
+      'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'
+    ];
+    for (const m of list) if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m;
+    return '';
+  }
+
+  async function generate() {
+    if (!img) { alert('먼저 영상에 나올 사진을 업로드해주세요!'); return; }
+    if (!window.MediaRecorder || !canvas.captureStream) {
+      alert('이 브라우저는 영상 녹화를 지원하지 않습니다. 최신 Chrome 또는 Safari를 사용해주세요.'); return;
+    }
+    recording = true;
+    $('go').disabled = true;
+    $('result').style.display = 'none';
+    $('status').textContent = '녹화 중입니다 🎬 (약 3초) 탭을 벗어나지 마세요!';
+
+    const mime = pickMime();
+    const stream = canvas.captureStream(FPS);
+    const rec = new MediaRecorder(stream, {
+      ...(mime ? { mimeType: mime } : {}),
+      videoBitsPerSecond: 10000000
+    });
+    const chunks = [];
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    const done = new Promise(res => { rec.onstop = res; });
+
+    drawScene(0);
+    rec.start();
+
+    await new Promise(resolve => {
+      const start = performance.now();
+      const tick = now => {
+        const t = now - start;
+        drawScene(Math.min(t, T_END));
+        if (t < T_END) requestAnimationFrame(tick); else resolve();
+      };
+      requestAnimationFrame(tick);
+    });
+
+    await new Promise(r => setTimeout(r, 150)); // 마지막 프레임 확보
+    rec.stop();
+    await done;
+    stream.getTracks().forEach(tr => tr.stop());
+
+    const type = (rec.mimeType || mime || 'video/mp4').split(';')[0];
+    const ext = type.includes('mp4') ? 'mp4' : 'webm';
+    const blob = new Blob(chunks, { type });
+    if (lastUrl) URL.revokeObjectURL(lastUrl);
+    lastUrl = URL.createObjectURL(blob);
+    lastFile = new File([blob], `airdrop-hq-video.${ext}`, { type });
+
+    const player = $('player');
+    player.src = lastUrl;
+    $('result').style.display = 'block';
+    $('status').textContent = ext === 'webm'
+      ? '완료! (이 브라우저는 WebM으로 저장됩니다. 아이폰 사진첩용은 Safari를 쓰세요)'
+      : '완료! 아래에서 저장하세요 ✅';
+    $('share').style.display = (navigator.canShare && navigator.canShare({ files: [lastFile] })) ? 'block' : 'none';
+    $('result').scrollIntoView({ behavior: 'smooth' });
+
+    recording = false;
+    $('go').disabled = false;
+    drawScene(0);
+  }
+
+  // ===== 이벤트 =====
+  const refresh = () => { if (!recording) drawScene(0); };
+  $('name').addEventListener('input', refresh);
+  $('zoom').addEventListener('input', refresh);
+  $('ypos').addEventListener('input', refresh);
+
+  $('file').addEventListener('change', async e => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    $('status').textContent = '사진 불러오는 중...';
+    try { img = await loadImage(f); $('status').textContent = ''; refresh(); }
+    catch (err) { console.error(err); $('status').textContent = '이미지를 불러오지 못했습니다.'; }
+  });
+
+  $('go').addEventListener('click', () => generate().catch(err => {
+    console.error(err);
+    recording = false; $('go').disabled = false;
+    $('status').textContent = '영상 생성 중 오류가 발생했습니다. 새로고침 후 다시 시도해주세요.';
+  }));
+
+  $('share').addEventListener('click', async () => {
+    try { await navigator.share({ files: [lastFile] }); } catch (e) { /* 취소 */ }
+  });
+
+  $('download').addEventListener('click', () => {
+    const a = document.createElement('a');
+    a.href = lastUrl; a.download = lastFile.name; a.click();
+  });
+
+  drawScene(0);
+})();
+</script>
 </body>
 </html>
