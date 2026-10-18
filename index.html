@@ -15,28 +15,29 @@
       flex-direction: column;
       align-items: center;
       background-color: #e5e5ea;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       margin: 0;
       padding: 40px 20px;
     }
 
-    /* 1. 설정 패널 (움짤에는 안 나옴) */
+    /* 1. 조종석 (움짤에는 안 나옴) */
     .control-panel {
       background: white;
       padding: 24px;
       border-radius: 16px;
       box-shadow: 0 4px 14px rgba(0,0,0,0.1);
       width: 100%;
-      max-width: 360px;
+      max-width: 400px;
       margin-bottom: 30px;
       box-sizing: border-box;
     }
     
-    .control-panel h3 { margin: 0 0 15px 0; font-size: 18px; color: #333; text-align: center; }
-    .input-group { margin-bottom: 15px; }
-    .input-group label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 6px; color: #555; }
+    .control-panel h3 { margin: 0 0 20px 0; font-size: 18px; color: #333; text-align: center; }
+    .input-group { margin-bottom: 18px; }
+    .input-group label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #555; }
     .input-group input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
     .input-group input[type="file"] { width: 100%; font-size: 14px; }
+    .input-group input[type="range"] { width: 100%; margin-top: 5px; }
     
     .btn-generate {
       width: 100%;
@@ -63,86 +64,94 @@
       line-height: 1.5;
     }
 
-    /* 2. 실제 움짤로 캡처될 영역 (보내주신 사진과 똑같은 비율과 디자인) */
+    /* 2. 실제 움짤로 캡처될 영역 (사진과 똑같은 디자인!) */
     #gif-frame {
-      width: 340px;
-      height: 380px;
+      width: 360px;
+      height: 480px; /* 전체 캔버스 크기 */
       background: transparent;
       position: relative;
+      border-radius: 20px; /* 전체 모서리 둥글게 */
+      overflow: hidden; /* 밖으로 튀어나가는 사진 자르기 */
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
     }
 
-    /* 에어드랍 UI 본체 */
+    /* 에어드랍 UI 본체 (수락 누르면 사라질 부분) */
     #airdrop-ui {
       width: 100%;
       height: 100%;
-      background: #ffffff;
-      border-radius: 18px; /* 사진과 동일한 둥근 모서리 */
       display: flex;
       flex-direction: column;
-      overflow: hidden;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      background: white;
+      position: absolute;
+      top: 0; left: 0;
+      z-index: 10;
     }
 
-    /* 상단 AirDrop 헤더 */
+    /* 상단 헤더 (AirDrop 글씨와 이름) */
     .ad-header {
-      height: 60px;
+      background: #f5f5f5; /* 아주 연한 회색 */
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
-      background: #f9f9f9;
-      font-size: 20px;
-      font-weight: 600;
+      padding: 22px 0 18px 0;
+    }
+    .ad-header .title {
+      font-size: 26px;
+      font-weight: bold;
       color: #000;
-      letter-spacing: -0.3px;
+      margin-bottom: 6px;
+      letter-spacing: -0.5px;
+    }
+    .ad-header .subtitle {
+      font-size: 15px;
+      color: #000;
     }
 
-    /* 중간 텍스트 영역 */
-    .ad-body {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: #ffffff;
-      padding: 20px;
+    /* 중간 사진 영역 (틀 안의 사진) */
+    .ad-image-container {
+      flex: 1; /* 남은 공간을 꽉 채움 */
+      overflow: hidden; /* 줌인 했을 때 튀어나가지 않게 */
+      position: relative;
+      background: #fff;
     }
-    #display-text {
-      font-size: 16px;
-      color: #000;
-      text-align: center;
-      line-height: 1.4;
-      word-break: keep-all;
+    #ad-preview-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover; /* 화면 비율에 맞게 꽉 채움 */
+      transform-origin: center center;
+      transform: scale(1); /* 초기 줌 상태 */
     }
 
     /* 하단 버튼 영역 */
     .ad-footer {
       height: 56px;
       display: flex;
-      background: #f9f9f9;
-      border-top: 1px solid #d1d1d6; /* 얇은 회색 선 */
+      background: #f5f5f5;
+      border-top: 1px solid #e0e0e0;
     }
-
     .ad-btn {
       flex: 1;
       display: flex;
       justify-content: center;
       align-items: center;
       font-size: 17px;
-      color: #007aff; /* 애플 블루 */
+      color: #007aff;
+      cursor: pointer;
     }
     .ad-btn.decline {
-      border-right: 1px solid #d1d1d6;
+      border-right: 1px solid #e0e0e0;
     }
 
-    /* 사진이 꽉 찰 때 보여질 이미지 엘리먼트 (처음엔 숨김) */
+    /* 수락 후 보여질 전체 화면 이미지 (처음엔 숨김) */
     #fullscreen-image {
-      position: absolute;
-      top: 0;
-      left: 0;
       width: 100%;
       height: 100%;
-      object-fit: cover; /* 프레임을 꽉 채움 */
-      display: none; /* 초기 상태는 숨김 */
-      border-radius: 18px; /* 처음엔 에어드랍 창과 동일한 둥글기 */
+      object-fit: cover;
+      position: absolute;
+      top: 0; left: 0;
+      z-index: 5;
+      display: none; /* 숨김 */
     }
 
   </style>
@@ -151,14 +160,18 @@
 
   <!-- 조종석 -->
   <div class="control-panel">
-    <h3>⚙️ 에어드랍 움짤 설정</h3>
+    <h3>⚙️ 에어드랍 상세 설정</h3>
     <div class="input-group">
-      <label>1. 안내 문구 입력</label>
-      <input type="text" id="text-input" value="1장의 사진을 공유하려고 합니다." placeholder="문구를 입력하세요">
+      <label>1. 보내는 사람 이름</label>
+      <input type="text" id="name-input" value="🐈‍⬛❤️" placeholder="이름이나 이모티콘을 입력하세요">
     </div>
     <div class="input-group">
-      <label>2. 뜰 사진 업로드 (내 컴퓨터/폰)</label>
+      <label>2. 나타날 사진 업로드</label>
       <input type="file" id="image-input" accept="image/*">
+    </div>
+    <div class="input-group">
+      <label>3. 에어드랍 창 사진 확대(Zoom) 조절</label>
+      <input type="range" id="zoom-slider" min="1" max="3" step="0.05" value="1">
     </div>
     <button class="btn-generate" id="generate-btn" onclick="startGifGeneration()">📸 이대로 움짤 만들기</button>
     <div id="loading-text">
@@ -169,11 +182,14 @@
 
   <!-- 촬영될 캔버스 영역 -->
   <div id="gif-frame">
-    <!-- 에어드랍 UI 프레임 -->
+    <!-- 상태 1: 에어드랍 창이 떠있는 상태 -->
     <div id="airdrop-ui">
-      <div class="ad-header">AirDrop</div>
-      <div class="ad-body">
-        <div id="display-text">1장의 사진을 공유하려고 합니다.</div>
+      <div class="ad-header">
+        <div class="title">AirDrop</div>
+        <div class="subtitle"><span id="sender-name">🐈‍⬛❤️</span>님이 사진을 공유하려고 합니다.</div>
+      </div>
+      <div class="ad-image-container">
+        <img id="ad-preview-image" src="" alt="업로드된 사진">
       </div>
       <div class="ad-footer">
         <div class="ad-btn decline">Decline</div>
@@ -181,23 +197,24 @@
       </div>
     </div>
     
-    <!-- 전체화면으로 뜰 업로드 이미지 -->
-    <img id="fullscreen-image" src="" alt="업로드된 사진">
+    <!-- 상태 2: 수락 후 뜨는 전체 화면 -->
+    <img id="fullscreen-image" src="" alt="전체 사진">
   </div>
 
   <script>
     let hasUploadedImage = false;
 
-    // 1. 텍스트 실시간 반영
-    document.getElementById('text-input').addEventListener('input', function() {
-      document.getElementById('display-text').innerText = this.value;
+    // 1. 이름 실시간 반영
+    document.getElementById('name-input').addEventListener('input', function() {
+      document.getElementById('sender-name').innerText = this.value;
     });
 
-    // 2. 사진 업로드 시 실시간 반영
+    // 2. 사진 업로드 시 실시간 반영 (미리보기 & 전체화면 둘 다)
     document.getElementById('image-input').addEventListener('change', function(event) {
       if (event.target.files && event.target.files[0]) {
         const reader = new FileReader();
         reader.onload = function(e) {
+          document.getElementById('ad-preview-image').src = e.target.result;
           document.getElementById('fullscreen-image').src = e.target.result;
           hasUploadedImage = true;
         };
@@ -205,14 +222,19 @@
       }
     });
 
-    // 3. 📸 대망의 움짤 촬영 및 생성 로직
+    // 3. 사진 확대(Zoom) 실시간 반영
+    document.getElementById('zoom-slider').addEventListener('input', function() {
+      document.getElementById('ad-preview-image').style.transform = `scale(${this.value})`;
+    });
+
+    // 📸 대망의 움짤 촬영 및 생성 로직
     async function startGifGeneration() {
       if (!hasUploadedImage) {
         alert("먼저 움짤로 나타날 사진을 업로드해주세요!");
         return;
       }
 
-      // 버튼 숨기고 로딩 텍스트 표시
+      // 로딩 텍스트 표시
       document.getElementById('generate-btn').style.display = 'none';
       document.getElementById('loading-text').style.display = 'block';
 
@@ -221,49 +243,46 @@
       const acceptBtn = document.getElementById('accept-btn');
       const fullImage = document.getElementById('fullscreen-image');
       
-      const framesData = []; // 촬영된 사진들이 담길 배열
+      const framesData = []; 
 
-      // 헬퍼 함수: 화면 찰칵 찍기 (고화질 유지를 위해 scale 2 적용)
+      // 헬퍼 함수: 화면 찰칵 찍기
       const captureFrame = async () => {
         const canvas = await html2canvas(gifFrame, { 
-          scale: 1.5, 
-          backgroundColor: null, // 투명 배경 유지
+          scale: 1.5, // 화질
+          backgroundColor: null, 
           logging: false 
         });
         return canvas.toDataURL('image/png');
       };
 
       try {
-        // [장면 1] 기본 대기 상태 (수락 버튼 누르기 전)
-        // 1번만 캡처하고 프레임을 복사해서 넣으면 생성 속도가 엄청 빨라집니다.
+        // [장면 1] 기본 에어드랍 대기 상태 (약 1.2초)
         const idleFrameURL = await captureFrame();
-        for(let i = 0; i < 12; i++) { framesData.push(idleFrameURL); } // 약 1.2초 정지
+        for(let i = 0; i < 12; i++) { framesData.push(idleFrameURL); }
 
-        // [장면 2] 'Accept' 버튼 눌림! (배경색이 회색으로 바뀜)
+        // [장면 2] 'Accept' 버튼 클릭 효과 (약 0.3초)
         acceptBtn.style.backgroundColor = '#e5e5ea'; 
         const clickFrameURL = await captureFrame();
-        for(let i = 0; i < 4; i++) { framesData.push(clickFrameURL); } // 약 0.4초 클릭 상태 유지
+        for(let i = 0; i < 3; i++) { framesData.push(clickFrameURL); }
 
-        // [장면 3] 에어드랍 UI가 완전히 사라지고 사진 전체가 등장!
-        airdropUi.style.display = 'none'; // 에어드랍 틀 없애기
-        fullImage.style.display = 'block'; // 사진 표시하기
-        // 사진 전체가 보일 땐 모서리 둥글기 제거 (직사각형 꽉 차게)
-        fullImage.style.borderRadius = '0'; 
+        // [장면 3] 에어드랍 UI 사라지고 전체 사진 등장! (약 1.5초)
+        airdropUi.style.display = 'none'; 
+        fullImage.style.display = 'block'; 
 
         const fullImageFrameURL = await captureFrame();
-        for(let i = 0; i < 15; i++) { framesData.push(fullImageFrameURL); } // 약 1.5초 사진 보여줌
+        for(let i = 0; i < 15; i++) { framesData.push(fullImageFrameURL); } 
 
         // 4. 찍어둔 사진들을 엮어서 하나의 GIF 파일로 합체!
         gifshot.createGIF({
           images: framesData,
-          interval: 0.1, // 0.1초당 1프레임 (자연스러운 속도)
-          gifWidth: 340,
-          gifHeight: 380
+          interval: 0.1, 
+          gifWidth: gifFrame.offsetWidth,
+          gifHeight: gifFrame.offsetHeight
         }, function(obj) {
           if(!obj.error) {
-            // 완성된 파일 다운로드 트리거
+            // 완성된 파일 다운로드
             const link = document.createElement('a');
-            link.download = 'airdrop-custom.gif';
+            link.download = 'airdrop-animation.gif';
             link.href = obj.image;
             link.click();
           } else {
@@ -274,4 +293,18 @@
           acceptBtn.style.backgroundColor = 'transparent';
           airdropUi.style.display = 'flex';
           fullImage.style.display = 'none';
-          fullImage.style.borderRadius = '18px';
+          
+          document.getElementById('generate-btn').style.display = 'block';
+          document.getElementById('loading-text').style.display = 'none';
+        });
+
+      } catch (error) {
+        console.error(error);
+        alert("캡처 중 문제가 발생했습니다.");
+        document.getElementById('generate-btn').style.display = 'block';
+        document.getElementById('loading-text').style.display = 'none';
+      }
+    }
+  </script>
+</body>
+</html>
