@@ -2,126 +2,188 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>내 맘대로 에어드랍 메이커</title>
+  <title>에어드랍 자동 움짤 메이커</title>
+  <!-- 화면을 캡처하는 마법의 라이브러리들 -->
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gifshot/0.3.2/gifshot.min.js"></script>
   <style>
     body {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      background-color: #f0f0f5;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      padding: 50px 20px;
-      margin: 0;
+      display: flex; flex-direction: column; align-items: center;
+      background-color: #f0f0f5; font-family: -apple-system, sans-serif;
+      padding: 40px 20px; margin: 0;
     }
 
-    /* 관리자 패널 (설정하는 곳) */
+    /* 관리자 패널 */
     .control-panel {
-      background: white;
-      padding: 20px 30px;
-      border-radius: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-      margin-bottom: 40px;
-      width: 100%;
-      max-width: 400px;
+      background: white; padding: 25px; border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 30px;
+      width: 100%; max-width: 350px;
     }
-    .control-panel h3 { margin-top: 0; color: #333; }
     .input-group { margin-bottom: 15px; }
-    .input-group label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 5px; color: #555; }
+    .input-group label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 8px; color: #333; }
     .input-group input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
-    .input-group input[type="file"] { width: 100%; padding: 5px 0; }
-    .reset-btn { width: 100%; padding: 12px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    
+    .download-btn { 
+      width: 100%; padding: 14px; background: #007aff; color: white; 
+      border: none; border-radius: 10px; font-size: 16px; font-weight: bold; 
+      cursor: pointer; margin-top: 10px; transition: 0.2s;
+    }
+    .download-btn:hover { background: #005bb5; }
+    #loading { display: none; text-align: center; font-weight: bold; color: #ff3b30; margin-top: 15px; }
 
-    /* ------------------------------------------------ */
-    /* 여기서부터 에어드랍 UI 부분 (캡처할 대상) */
+    /* 움짤로 저장될 실제 캡처 영역 (모서리를 깔끔하게 저장하기 위해 배경 패딩 추가) */
+    #capture-container {
+      background: #f0f0f5; padding: 20px; border-radius: 20px;
+    }
+
+    /* 에어드랍 디자인 (보내주신 사진 기반) */
     .airdrop-box {
-      width: 320px;
-      background: #ffffff;
-      border-radius: 14px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-      overflow: hidden;
-      text-align: center;
-      position: relative;
+      width: 320px; height: 380px; background: #ffffff;
+      border-radius: 16px; overflow: hidden; text-align: center;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.05); position: relative;
     }
     
-    .header {
-      padding: 20px 0;
-      font-size: 22px;
-      font-weight: 600;
-      background: #f9f9f9;
-      color: #000;
-    }
+    .header { height: 65px; line-height: 65px; font-size: 20px; font-weight: bold; color: #000; background: #fcfcfc; }
     
     .image-area {
-      width: 100%;
-      height: 320px;
-      background: #ffffff;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      position: relative;
+      width: 100%; height: 260px; background: #ffffff;
+      display: flex; justify-content: center; align-items: center; position: relative;
     }
 
-    /* 사진 위에 덮이는 안내 문구 (추가됨!) */
     .message-text {
-      position: absolute;
-      width: 80%;
-      font-size: 16px;
-      color: #333;
-      line-height: 1.4;
-      z-index: 10;
-      transition: opacity 0.3s ease-in-out;
+      position: absolute; width: 80%; font-size: 16px; color: #333; line-height: 1.4;
     }
     
-    /* 띄워질 사진 */
     .image-area img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      opacity: 0; /* 처음엔 투명하게 숨김 */
-      transition: opacity 0.3s ease-in-out; /* 부드럽게 나타나는 효과 */
-      position: absolute;
-      top: 0;
-      left: 0;
-      z-index: 20; /* 문구 위로 올라오게 설정 */
+      width: 100%; height: 100%; object-fit: cover;
+      opacity: 0; position: absolute; top: 0; left: 0; z-index: 10;
     }
     
     .button-area {
-      display: flex;
-      border-top: 1px solid #d1d1d6;
-      background: #f9f9f9;
+      height: 55px; display: flex; border-top: 1px solid #e5e5ea; background: #fcfcfc;
     }
     
     .btn {
-      flex: 1;
-      padding: 16px 0;
-      font-size: 17px;
-      color: #007aff;
-      cursor: pointer;
-      user-select: none;
+      flex: 1; line-height: 55px; font-size: 17px; color: #007aff; 
+      user-select: none; border-right: 1px solid #e5e5ea;
     }
-    .btn:active { background: #e5e5ea; }
-    .decline { border-right: 1px solid #d1d1d6; }
+    .btn:last-child { border-right: none; }
   </style>
 </head>
 <body>
 
-  <!-- 1. 사진과 문구를 수정하는 조종석 -->
+  <!-- 1. 글씨/사진 설정 & 다운로드 버튼 -->
   <div class="control-panel">
-    <h3>⚙️ 에어드랍 설정</h3>
     <div class="input-group">
-      <label>안내 문구 수정</label>
-      <input type="text" id="text-input" value="GitHub 님이 사진 1장을 공유하려고 합니다.">
+      <label>1. 안내 문구 입력</label>
+      <input type="text" id="text-input" value="iPhone님이 사진 1장을 공유하려고 합니다.">
     </div>
     <div class="input-group">
-      <label>나타날 사진 업로드 (내 컴퓨터에서 선택)</label>
+      <label>2. 뜰 사진 업로드</label>
       <input type="file" id="image-input" accept="image/*">
     </div>
-    <button class="reset-btn" onclick="resetAirdrop()">다시 처음으로 숨기기 🔄</button>
+    <button class="download-btn" id="download-btn" onclick="generateGIF()">💾 이대로 움짤 파일 저장하기</button>
+    <div id="loading">움짤을 굽는 중입니다...<br>(약 5~10초 정도 기다려주세요!)</div>
   </div>
 
-  <!-- 2. 실제 화면 녹화를 뜰 에어드랍 디자인 -->
-  <div class="airdrop-box" id="capture-area">
-    <div class="header">AirDrop</div>
-    
-    <div class="image-area">
-      <!-- 조종석에서 바꾼 텍스트가 여기 반영
+  <!-- 2. 이 영역이 그대로 움짤로 만들어집니다! -->
+  <div id="capture-container">
+    <div class="airdrop-box" id="capture-area">
+      <div class="header">AirDrop</div>
+      
+      <div class="image-area">
+        <div class="message-text" id="display-text">iPhone님이 사진 1장을 공유하려고 합니다.</div>
+        <img id="target-image" src="" alt="업로드된 사진">
+      </div>
+      
+      <div class="button-area">
+        <div class="btn">Decline</div>
+        <div class="btn">Accept</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 텍스트 실시간 반영
+    document.getElementById('text-input').addEventListener('input', function() {
+      document.getElementById('display-text').innerText = this.value;
+    });
+
+    // 사진 실시간 반영
+    document.getElementById('image-input').addEventListener('change', function(event) {
+      const reader = new FileReader();
+      reader.onload = function(){
+        document.getElementById('target-image').src = reader.result;
+      };
+      if(event.target.files[0]) reader.readAsDataURL(event.target.files[0]);
+    });
+
+    // 웹사이트가 스스로 움짤을 찰칵찰칵 만들어서 다운로드 하는 마법의 기능!
+    async function generateGIF() {
+      const targetImage = document.getElementById('target-image');
+      if (!targetImage.src || targetImage.src === window.location.href) {
+        alert('먼저 뜰 사진을 업로드해주세요!');
+        return;
+      }
+
+      // 버튼 숨기고 로딩 표시
+      const btn = document.getElementById('download-btn');
+      const loading = document.getElementById('loading');
+      btn.style.display = 'none';
+      loading.style.display = 'block';
+
+      const airdropBox = document.getElementById('capture-container');
+      const displayText = document.getElementById('display-text');
+      const frames = [];
+
+      // [1단계] 글씨만 있는 화면 4장 찰칵
+      targetImage.style.opacity = '0';
+      displayText.style.opacity = '1';
+      for(let i=0; i<4; i++) {
+        const canvas = await html2canvas(airdropBox);
+        frames.push(canvas.toDataURL('image/png'));
+      }
+
+      // [2단계] 'Accept'를 누른 것처럼 사진이 스르륵 나타나는 과정 10장 찰칵
+      for(let i=1; i<=10; i++) {
+        targetImage.style.opacity = (i / 10).toString();
+        displayText.style.opacity = (1 - (i / 10)).toString();
+        await new Promise(r => setTimeout(r, 20)); // 화면 반영 대기시간
+        const canvas = await html2canvas(airdropBox);
+        frames.push(canvas.toDataURL('image/png'));
+      }
+
+      // [3단계] 사진이 완전히 뜬 최종 화면 6장 찰칵
+      for(let i=0; i<6; i++) {
+        const canvas = await html2canvas(airdropBox);
+        frames.push(canvas.toDataURL('image/png'));
+      }
+
+      // [4단계] 찍은 20장의 사진을 하나의 GIF로 묶어서 다운로드!
+      gifshot.createGIF({
+        images: frames,
+        interval: 0.1, // 애니메이션 속도
+        gifWidth: airdropBox.offsetWidth,
+        gifHeight: airdropBox.offsetHeight
+      }, function(obj) {
+        if(!obj.error) {
+          // 완성된 움짤 파일 자동 다운로드
+          const link = document.createElement('a');
+          link.download = 'my-airdrop-animation.gif';
+          link.href = obj.image;
+          link.click();
+        } else {
+          alert('오류가 발생했습니다. 새로고침 후 다시 시도해주세요.');
+        }
+        
+        // 원상복구
+        btn.style.display = 'block';
+        loading.style.display = 'none';
+        targetImage.style.opacity = '0';
+        displayText.style.opacity = '1';
+      });
+    }
+  </script>
+
+</body>
+</html>
