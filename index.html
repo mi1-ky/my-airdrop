@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>에어드랍 초고화질 영상 생성기</title>
+<title>에어드랍 움짤(GIF) 생성기</title>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -18,8 +18,8 @@
   .panel h3 { margin: 0 0 18px; font-size: 18px; text-align: center; color: #333; }
   .group { margin-bottom: 16px; }
   .group label { display: block; font-size: 13px; font-weight: bold; color: #555; margin-bottom: 8px; }
-  .group input[type=text], .group input[type=file] {
-    width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px;
+  .group input[type=text], .group input[type=file], .group select {
+    width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; background: #fff;
   }
   .group input[type=range] { width: 100%; }
   button {
@@ -35,20 +35,20 @@
     border-radius: 20px; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,.15);
   }
   #result { display: none; width: 100%; max-width: 400px; margin-top: 24px; }
-  #result video { width: 100%; max-width: 360px; display: block; margin: 0 auto 8px; border-radius: 16px; background: #000; }
-  #result p { font-size: 13px; color: #555; text-align: center; margin: 4px 0 0; }
+  #result img { width: 100%; max-width: 360px; display: block; margin: 0 auto 8px; border-radius: 16px; background: #000; }
+  #result p { font-size: 13px; color: #555; text-align: center; margin: 4px 0 0; line-height: 1.5; }
 </style>
 </head>
 <body>
 
 <div class="panel">
-  <h3>⚙️ 에어드랍 상세 설정 (고화질 영상)</h3>
+  <h3>⚙️ 에어드랍 움짤(GIF) 설정</h3>
   <div class="group">
     <label>1. 보내는 사람 이름</label>
     <input type="text" id="name" value="🐈‍⬛❤️" placeholder="이름이나 이모티콘">
   </div>
   <div class="group">
-    <label>2. 나타날 사진 업로드 (원본 화질 유지)</label>
+    <label>2. 나타날 사진 업로드</label>
     <input type="file" id="file" accept="image/*">
   </div>
   <div class="group">
@@ -59,50 +59,56 @@
     <label>4. 사진 상하 위치 ↕️</label>
     <input type="range" id="ypos" min="0" max="100" step="1" value="50">
   </div>
-  <button id="go">🎬 이대로 고화질 영상 만들기</button>
+  <div class="group">
+    <label>5. 움짤 크기</label>
+    <select id="size">
+      <option value="480">작게 (480px · 용량 작음)</option>
+      <option value="600" selected>보통 (600px)</option>
+      <option value="720">크게 (720px · 고화질)</option>
+    </select>
+  </div>
+  <button id="go">🎞️ 움짤(GIF) 만들기</button>
   <div id="status"></div>
 </div>
 
 <div id="stage"><canvas id="canvas" width="1080" height="1446"></canvas></div>
 
 <div class="panel" id="result">
-  <video id="player" controls playsinline loop></video>
+  <img id="player" alt="완성된 움짤">
   <button id="share">📱 사진첩에 저장 / 공유</button>
   <button id="download" class="secondary">⬇️ 파일로 다운로드</button>
-  <p>아이폰: 공유 시트에서 "비디오 저장"을 누르면 사진첩에 저장됩니다.</p>
+  <p id="info"></p>
+  <p>아이폰: 공유 시트에서 "이미지 저장"을 누르거나, 위 움짤을 길게 눌러 저장하세요.</p>
 </div>
 
 <script>
 (() => {
   // ===== 기본 설정 =====
-  const W = 1080, H = 1446;          // 출력 해상도
-  const LW = 360, LH = 482;          // 논리 좌표 (원본 레이아웃)
-  const S = W / LW;                  // 3배
-  const HEADER_H = 66, FOOT_H = 56, IMG_SIZE = 360; // 66 + 360 + 56 = 482 (항상 고정)
-  const FPS = 30;
-  const T_CLICK = 1000, T_TRANS = 1200, TRANS_DUR = 500, T_END = 3200; // ms
-  const MAX_SIDE = 2400;             // 업로드 이미지 최대 변 길이
+  const W = 1080, H = 1446;
+  const LW = 360, LH = 482;
+  const S = W / LW;
+  const HEADER_H = 66, FOOT_H = 56, IMG_SIZE = 360;
+  const T_CLICK = 1000, T_TRANS = 1200, TRANS_DUR = 500, T_END = 3200;
+  const TRANS_FRAMES = 12;           // 전환 구간 프레임 수
+  const MAX_SIDE = 2400;
 
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
   const $ = id => document.getElementById(id);
   const FONT = '-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", Roboto, sans-serif';
 
-  let img = null;       // 다운스케일된 소스 (canvas 또는 bitmap)
-  let recording = false;
-  let lastUrl = null, lastFile = null;
+  let img = null, busy = false, lastUrl = null, lastFile = null;
 
-  // ===== 이미지 로드 (한 번만 디코딩 + 크기 제한 + EXIF 회전) =====
+  // ===== 이미지 로드 =====
   async function loadImage(file) {
     let src;
     try {
       src = await createImageBitmap(file, { imageOrientation: 'from-image' });
     } catch (e) {
       src = await new Promise((res, rej) => {
-        const i = new Image(), u = URL.createObjectURL(file);
-        i.onload = () => { res(i); };
-        i.onerror = rej;
-        i.src = u;
+        const i = new Image();
+        i.onload = () => res(i); i.onerror = rej;
+        i.src = URL.createObjectURL(file);
       });
     }
     const w = src.width || src.naturalWidth, h = src.height || src.naturalHeight;
@@ -116,8 +122,8 @@
     return c;
   }
 
-  // ===== 그리기 유틸 =====
-  function drawCover(x, y, w, h, zoom, posY) {
+  // ===== 그리기 =====
+  function coverRect(x, y, w, h, zoom, posY) {
     const s = Math.max(w / img.width, h / img.height) * zoom;
     const dw = img.width * s, dh = img.height * s;
     ctx.save();
@@ -126,7 +132,7 @@
     ctx.restore();
   }
 
-  function drawContain() {
+  function drawFull() { // 전체 화면: 여백 없이 꽉 차게
     const s = Math.max(LW / img.width, LH / img.height);
     const dw = img.width * s, dh = img.height * s;
     ctx.drawImage(img, (LW - dw) / 2, (LH - dh) / 2, dw, dh);
@@ -135,32 +141,26 @@
   function fitText(text, maxW, size, weight) {
     let s = size;
     ctx.font = `${weight} ${s}px ${FONT}`;
-    while (ctx.measureText(text).width > maxW && s > 8) {
-      s -= 0.5; ctx.font = `${weight} ${s}px ${FONT}`;
-    }
+    while (ctx.measureText(text).width > maxW && s > 8) { s -= 0.5; ctx.font = `${weight} ${s}px ${FONT}`; }
   }
 
-  function drawAirdropUI(pressed) {
+  function drawUI(pressed) {
     const zoom = parseFloat($('zoom').value);
     const posY = parseInt($('ypos').value, 10) / 100;
     const name = $('name').value;
 
-    // 배경
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, LW, LH);
-
-    // 헤더
     ctx.fillStyle = '#f5f5f5'; ctx.fillRect(0, 0, LW, HEADER_H);
     ctx.fillStyle = '#000'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.font = `bold 22px ${FONT}`;
     ctx.fillText('AirDrop', LW / 2, 24);
-    fitText(`${name}님이 사진을 공유하려고 합니다.`, LW - 20, 14, 'normal');
-    ctx.fillText(`${name}님이 사진을 공유하려고 합니다.`, LW / 2, 47);
+    const sub = `${name}님이 사진을 공유하려고 합니다.`;
+    fitText(sub, LW - 20, 14, 'normal');
+    ctx.fillText(sub, LW / 2, 47);
 
-    // 사진 (정사각형 고정)
     ctx.fillStyle = '#fff'; ctx.fillRect(0, HEADER_H, LW, IMG_SIZE);
-    if (img) drawCover(0, HEADER_H, LW, IMG_SIZE, zoom, posY);
+    if (img) coverRect(0, HEADER_H, LW, IMG_SIZE, zoom, posY);
 
-    // 푸터
     const fy = HEADER_H + IMG_SIZE;
     ctx.fillStyle = '#f5f5f5'; ctx.fillRect(0, fy, LW, FOOT_H);
     if (pressed) { ctx.fillStyle = '#d1d1d6'; ctx.fillRect(LW / 2, fy, LW / 2, FOOT_H); }
@@ -172,7 +172,6 @@
     ctx.fillText('Accept', LW * 3 / 4, fy + FOOT_H / 2);
   }
 
-  // t(ms) 시점의 장면을 그린다 — 미리보기와 녹화가 같은 함수를 씀 (WYSIWYG)
   function drawScene(t) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
@@ -188,85 +187,187 @@
       fn();
       ctx.restore();
     };
-
-    if (p > 0 && img) place(1.05 - p * 0.05, p, drawContain);
-    if (p < 1) place(1 - p * 0.05, 1 - p, () => drawAirdropUI(pressed));
+    if (p > 0 && img) place(1.05 - p * 0.05, p, drawFull);
+    if (p < 1) place(1 - p * 0.05, 1 - p, () => drawUI(pressed));
   }
 
-  // ===== 녹화 =====
-  function pickMime() {
-    const list = [
-      'video/mp4;codecs=avc1.640028', 'video/mp4;codecs=avc1', 'video/mp4',
-      'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'
-    ];
-    for (const m of list) if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m;
-    return '';
-  }
+  // ===== GIF 인코더 (외부 라이브러리 없음) =====
 
-  async function generate() {
-    if (!img) { alert('먼저 영상에 나올 사진을 업로드해주세요!'); return; }
-    if (!window.MediaRecorder || !canvas.captureStream) {
-      alert('이 브라우저는 영상 녹화를 지원하지 않습니다. 최신 Chrome 또는 Safari를 사용해주세요.'); return;
+  // 15비트(RGB555) 히스토그램 + 중앙값 분할(median cut)로 256색 팔레트 생성
+  function buildPalette(hist, sums) {
+    const keys = [];
+    for (let i = 0; i < 32768; i++) if (hist[i]) keys.push(i);
+
+    const mkBox = ks => {
+      let mn = [31, 31, 31], mx = [0, 0, 0], pop = 0;
+      for (const k of ks) {
+        const c = [(k >> 10) & 31, (k >> 5) & 31, k & 31];
+        for (let j = 0; j < 3; j++) { if (c[j] < mn[j]) mn[j] = c[j]; if (c[j] > mx[j]) mx[j] = c[j]; }
+        pop += hist[k];
+      }
+      const r = [mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]];
+      return { ks, pop, r, maxR: Math.max(r[0], r[1], r[2]) };
+    };
+
+    const boxes = [mkBox(keys)];
+    while (boxes.length < 256) {
+      let bi = -1, best = -1;
+      boxes.forEach((b, i) => {
+        if (b.ks.length > 1 && b.maxR > 0) {
+          const sc = b.maxR * b.pop;
+          if (sc > best) { best = sc; bi = i; }
+        }
+      });
+      if (bi < 0) break;
+      const b = boxes[bi];
+      const ch = b.r.indexOf(b.maxR), shift = [10, 5, 0][ch];
+      b.ks.sort((a, c) => ((a >> shift) & 31) - ((c >> shift) & 31));
+      let acc = 0, cut = 1;
+      for (let i = 0; i < b.ks.length; i++) {
+        acc += hist[b.ks[i]];
+        if (acc >= b.pop / 2) { cut = Math.min(Math.max(i + 1, 1), b.ks.length - 1); break; }
+      }
+      boxes.splice(bi, 1, mkBox(b.ks.slice(0, cut)), mkBox(b.ks.slice(cut)));
     }
-    recording = true;
-    $('go').disabled = true;
-    $('result').style.display = 'none';
-    $('status').textContent = '녹화 중입니다 🎬 (약 3초) 탭을 벗어나지 마세요!';
 
-    const mime = pickMime();
-    const stream = canvas.captureStream(FPS);
-    const rec = new MediaRecorder(stream, {
-      ...(mime ? { mimeType: mime } : {}),
-      videoBitsPerSecond: 10000000
-    });
-    const chunks = [];
-    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
-    const done = new Promise(res => { rec.onstop = res; });
-
-    drawScene(0);
-    rec.start();
-
-    await new Promise(resolve => {
-      const start = performance.now();
-      const tick = now => {
-        const t = now - start;
-        drawScene(Math.min(t, T_END));
-        if (t < T_END) requestAnimationFrame(tick); else resolve();
-      };
-      requestAnimationFrame(tick);
+    const pal = new Uint8Array(256 * 3);
+    boxes.forEach((b, i) => {
+      let r = 0, g = 0, bl = 0, n = 0;
+      for (const k of b.ks) { r += sums[k * 3]; g += sums[k * 3 + 1]; bl += sums[k * 3 + 2]; n += hist[k]; }
+      pal[i * 3] = Math.round(r / n); pal[i * 3 + 1] = Math.round(g / n); pal[i * 3 + 2] = Math.round(bl / n);
     });
 
-    await new Promise(r => setTimeout(r, 150)); // 마지막 프레임 확보
-    rec.stop();
-    await done;
-    stream.getTracks().forEach(tr => tr.stop());
+    // 각 색(15비트)을 가장 가까운 팔레트 색으로 매핑
+    const map = new Uint8Array(32768);
+    const nb = boxes.length;
+    for (const k of keys) {
+      const r = sums[k * 3] / hist[k], g = sums[k * 3 + 1] / hist[k], b = sums[k * 3 + 2] / hist[k];
+      let bd = 1e18, bj = 0;
+      for (let j = 0; j < nb; j++) {
+        const dr = r - pal[j * 3], dg = g - pal[j * 3 + 1], db = b - pal[j * 3 + 2];
+        const d = dr * dr * 0.3 + dg * dg * 0.59 + db * db * 0.11;
+        if (d < bd) { bd = d; bj = j; }
+      }
+      map[k] = bj;
+    }
+    return { pal, map };
+  }
 
-    const type = (rec.mimeType || mime || 'video/mp4').split(';')[0];
-    const ext = type.includes('mp4') ? 'mp4' : 'webm';
-    const blob = new Blob(chunks, { type });
+  function lzwEncode(idx) {
+    const minCode = 8, clear = 256, eoi = 257;
+    const bytes = [];
+    let cur = 0, bits = 0, size = 9, next = 258;
+    const emit = code => {
+      cur |= code << bits; bits += size;
+      while (bits >= 8) { bytes.push(cur & 255); cur >>>= 8; bits -= 8; }
+    };
+    let dict = new Map();
+    emit(clear);
+    let prefix = idx[0];
+    for (let i = 1; i < idx.length; i++) {
+      const k = idx[i], key = (prefix << 8) | k, c = dict.get(key);
+      if (c !== undefined) { prefix = c; continue; }
+      emit(prefix);
+      if (next === 4096) {
+        emit(clear); next = 258; size = 9; dict = new Map();
+      } else {
+        if (next >= (1 << size)) size++;
+        dict.set(key, next++);
+      }
+      prefix = k;
+    }
+    emit(prefix); emit(eoi);
+    if (bits > 0) bytes.push(cur & 255);
+    return { minCode, bytes };
+  }
+
+  function encodeGif(w, h, pal, frames) { // frames: [{idx, delay(1/100s)}]
+    const out = [];
+    const push = (...a) => out.push(Uint8Array.from(a));
+    const hdr = new Uint8Array([71, 73, 70, 56, 57, 97, w & 255, w >> 8, h & 255, h >> 8, 0xF7, 0, 0]);
+    out.push(hdr, pal);
+    push(0x21, 0xFF, 0x0B, 78, 69, 84, 83, 67, 65, 80, 69, 50, 46, 48, 3, 1, 0, 0, 0); // 무한 반복
+    for (const f of frames) {
+      push(0x21, 0xF9, 4, 0, f.delay & 255, f.delay >> 8, 0, 0);
+      push(0x2C, 0, 0, 0, 0, w & 255, w >> 8, h & 255, h >> 8, 0);
+      const { minCode, bytes } = lzwEncode(f.idx);
+      push(minCode);
+      for (let i = 0; i < bytes.length; i += 255) {
+        const chunk = bytes.slice(i, i + 255);
+        out.push(Uint8Array.from([chunk.length]), Uint8Array.from(chunk));
+      }
+      push(0);
+    }
+    push(0x3B);
+    return new Blob(out, { type: 'image/gif' });
+  }
+
+  const tick = () => new Promise(r => setTimeout(r, 0));
+
+  // ===== 생성 =====
+  async function generate() {
+    if (!img) { alert('먼저 움짤에 나올 사진을 업로드해주세요!'); return; }
+    busy = true; $('go').disabled = true; $('result').style.display = 'none';
+
+    const gw = parseInt($('size').value, 10);
+    const gh = Math.round(gw * H / W);
+    const gc = document.createElement('canvas');
+    gc.width = gw; gc.height = gh;
+    const gctx = gc.getContext('2d', { willReadFrequently: true });
+    gctx.imageSmoothingEnabled = true; gctx.imageSmoothingQuality = 'high';
+
+    // 장면 목록: 정지 구간은 프레임 1장 + 긴 지연시간으로 처리 (용량 절약)
+    const plan = [{ t: 0, d: 100 }, { t: T_CLICK, d: 20 }];
+    for (let i = 1; i < TRANS_FRAMES; i++) plan.push({ t: T_TRANS + (TRANS_DUR * i) / TRANS_FRAMES, d: 4 });
+    plan.push({ t: T_END, d: 150 });
+
+    const hist = new Uint32Array(32768), sums = new Float64Array(32768 * 3);
+    const raws = [];
+    for (let n = 0; n < plan.length; n++) {
+      $('status').textContent = `프레임 만드는 중... (${n + 1}/${plan.length})`;
+      await tick();
+      drawScene(plan[n].t);
+      gctx.drawImage(canvas, 0, 0, gw, gh);
+      const d = gctx.getImageData(0, 0, gw, gh).data;
+      raws.push(d);
+      for (let i = 0; i < d.length; i += 4) {
+        const k = ((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3);
+        hist[k]++; sums[k * 3] += d[i]; sums[k * 3 + 1] += d[i + 1]; sums[k * 3 + 2] += d[i + 2];
+      }
+    }
+
+    $('status').textContent = '색상 팔레트 만드는 중...'; await tick();
+    const { pal, map } = buildPalette(hist, sums);
+
+    const frames = [];
+    for (let n = 0; n < raws.length; n++) {
+      $('status').textContent = `GIF 압축 중... (${n + 1}/${raws.length})`;
+      await tick();
+      const d = raws[n], idx = new Uint8Array(gw * gh);
+      for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+        idx[p] = map[((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3)];
+      }
+      frames.push({ idx, delay: plan[n].d });
+    }
+
+    const blob = encodeGif(gw, gh, pal, frames);
     if (lastUrl) URL.revokeObjectURL(lastUrl);
     lastUrl = URL.createObjectURL(blob);
-    lastFile = new File([blob], `airdrop-hq-video.${ext}`, { type });
+    lastFile = new File([blob], 'airdrop.gif', { type: 'image/gif' });
 
-    const player = $('player');
-    player.src = lastUrl;
+    $('player').src = lastUrl;
+    $('info').textContent = `${gw}×${gh} · ${(blob.size / 1048576).toFixed(1)}MB`;
     $('result').style.display = 'block';
-    $('status').textContent = ext === 'webm'
-      ? '완료! (이 브라우저는 WebM으로 저장됩니다. 아이폰 사진첩용은 Safari를 쓰세요)'
-      : '완료! 아래에서 저장하세요 ✅';
     $('share').style.display = (navigator.canShare && navigator.canShare({ files: [lastFile] })) ? 'block' : 'none';
+    $('status').textContent = '완료! 아래에서 저장하세요 ✅';
     $('result').scrollIntoView({ behavior: 'smooth' });
 
-    recording = false;
-    $('go').disabled = false;
-    drawScene(0);
+    busy = false; $('go').disabled = false; drawScene(0);
   }
 
   // ===== 이벤트 =====
-  const refresh = () => { if (!recording) drawScene(0); };
-  $('name').addEventListener('input', refresh);
-  $('zoom').addEventListener('input', refresh);
-  $('ypos').addEventListener('input', refresh);
+  const refresh = () => { if (!busy) drawScene(0); };
+  ['name', 'zoom', 'ypos'].forEach(id => $(id).addEventListener('input', refresh));
 
   $('file').addEventListener('change', async e => {
     const f = e.target.files && e.target.files[0];
@@ -277,18 +378,16 @@
   });
 
   $('go').addEventListener('click', () => generate().catch(err => {
-    console.error(err);
-    recording = false; $('go').disabled = false;
-    $('status').textContent = '영상 생성 중 오류가 발생했습니다. 새로고침 후 다시 시도해주세요.';
+    console.error(err); busy = false; $('go').disabled = false;
+    $('status').textContent = '생성 중 오류가 발생했습니다. 새로고침 후 다시 시도해주세요.';
   }));
 
   $('share').addEventListener('click', async () => {
     try { await navigator.share({ files: [lastFile] }); } catch (e) { /* 취소 */ }
   });
-
   $('download').addEventListener('click', () => {
     const a = document.createElement('a');
-    a.href = lastUrl; a.download = lastFile.name; a.click();
+    a.href = lastUrl; a.download = 'airdrop.gif'; a.click();
   });
 
   drawScene(0);
