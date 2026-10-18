@@ -31,7 +31,7 @@
   #status { text-align: center; font-size: 14px; color: #ff3b30; font-weight: bold; margin-top: 12px; min-height: 20px; line-height: 1.5; }
   #stage { width: 100%; max-width: 360px; }
   #canvas {
-    display: block; width: 100%; height: auto; aspect-ratio: 1080 / 975;
+    display: block; width: 100%; height: auto; aspect-ratio: 1080 / 1446;
     border-radius: 20px; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,.15);
   }
   #result { display: none; width: 100%; max-width: 400px; margin-top: 24px; }
@@ -56,12 +56,13 @@
     <input type="range" id="zoom" min="1" max="3" step="0.05" value="1">
   </div>
   <div class="group">
-    <label>4. 사진 좌우 위치 ↔️</label>
-    <input type="range" id="xpos" min="0" max="100" step="1" value="50">
+    <label>4. 사진 상하 위치 ↕️</label>
+    <input type="range" id="ypos" min="0" max="100" step="1" value="50">
   </div>
   <div class="group">
-    <label>5. 사진 상하 위치 ↕️</label>
-    <input type="range" id="ypos" min="0" max="100" step="1" value="50">
+    <!-- ⭐️ 좌우 조절 버튼이 추가된 부분입니다 ⭐️ -->
+    <label>5. 사진 좌우 위치 ↔️</label>
+    <input type="range" id="xpos" min="0" max="100" step="1" value="50">
   </div>
   <div class="group">
     <label>6. 움짤 크기</label>
@@ -75,7 +76,7 @@
   <div id="status"></div>
 </div>
 
-<div id="stage"><canvas id="canvas" width="1080" height="975"></canvas></div>
+<div id="stage"><canvas id="canvas" width="1080" height="1446"></canvas></div>
 
 <div class="panel" id="result">
   <img id="player" alt="완성된 움짤">
@@ -88,10 +89,10 @@
 <script>
 (() => {
   // ===== 기본 설정 =====
-  const W = 1080, H = 975;
-  const LW = 360, LH = 325;
+  const W = 1080, H = 1446;
+  const LW = 360, LH = 482;
   const S = W / LW;
-  const HEADER_H = 66, FOOT_H = 56, IMG_SIZE = 203; // 트위터(X) 16:9 비율
+  const HEADER_H = 66, FOOT_H = 56, IMG_SIZE = 360;
   const T_CLICK = 1000, T_TRANS = 1200, TRANS_DUR = 720, T_END = 3200;
   const TRANS_FRAMES = 18;           // 전환 구간 프레임 수
   const MAX_SIDE = 2400;
@@ -127,11 +128,13 @@
   }
 
   // ===== 그리기 =====
+  // ⭐️ posX(좌우 위치 파라미터)가 추가되었습니다 ⭐️
   function coverRect(x, y, w, h, zoom, posX, posY) {
     const s = Math.max(w / img.width, h / img.height) * zoom;
     const dw = img.width * s, dh = img.height * s;
     ctx.save();
     ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    // ⭐️ 가로 위치도 posX 값에 따라 조절되도록 수정되었습니다 ⭐️
     ctx.drawImage(img, x + (w - dw) * posX, y + (h - dh) * posY, dw, dh);
     ctx.restore();
   }
@@ -150,6 +153,7 @@
 
   function drawUI(pressed) {
     const zoom = parseFloat($('zoom').value);
+    // ⭐️ xpos(좌우 위치) 값을 읽어오는 코드가 추가되었습니다 ⭐️
     const posX = parseInt($('xpos').value, 10) / 100;
     const posY = parseInt($('ypos').value, 10) / 100;
     const name = $('name').value;
@@ -164,6 +168,7 @@
     ctx.fillText(sub, LW / 2, 47);
 
     ctx.fillStyle = '#fff'; ctx.fillRect(0, HEADER_H, LW, IMG_SIZE);
+    // ⭐️ posX 값을 전달하여 그리도록 수정되었습니다 ⭐️
     if (img) coverRect(0, HEADER_H, LW, IMG_SIZE, zoom, posX, posY);
 
     const fy = HEADER_H + IMG_SIZE;
@@ -215,7 +220,7 @@
 
     if (p > 0 && img) {
       const sc = 1.04 - p * 0.04;
-      place(sc, 1, drawFull);                                 // 선명한 사진(맨 아래)
+      place(sc, 1, drawFull);                                   // 선명한 사진(맨 아래)
       const ba = p < 0.35 ? 1 : 1 - (p - 0.35) / 0.65;          // 블러 사진: 점점 선명해짐
       if (blurImg && ba > 0) place(sc, ba, drawBlur);
     }
@@ -420,6 +425,7 @@
 
   // ===== 이벤트 =====
   const refresh = () => { if (!busy) drawScene(0); };
+  // ⭐️ xpos도 슬라이더를 움직일 때 실시간으로 화면이 바뀌도록 이벤트에 추가했습니다 ⭐️
   ['name', 'zoom', 'xpos', 'ypos'].forEach(id => $(id).addEventListener('input', refresh));
 
   $('file').addEventListener('change', async e => {
