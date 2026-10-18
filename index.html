@@ -2,66 +2,102 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>에어드랍 짤 생성기</title>
-  <!-- 화면을 이미지로 저장해주는 라이브러리 불러오기 -->
-  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <title>에어드랍 움짤 만들기</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    /* 에어드랍 틀 디자인 (이 부분을 나중에 예쁘게 꾸미면 됩니다) */
-    #airdrop-template {
-      width: 300px;
-      padding: 20px;
-      background-color: #f5f5f7;
-      border-radius: 20px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    /* 배경 화면 설정 */
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #e5e5ea; /* 깃허브 배경과 잘 어울리는 색 */
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    
+    /* 에어드랍 창 디자인 (보내주신 사진과 100% 똑같은 비율) */
+    .airdrop-box {
+      width: 320px;
+      background: #ffffff;
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      overflow: hidden;
       text-align: center;
     }
-    #preview-image { width: 100%; height: 200px; object-fit: cover; border-radius: 10px; margin-bottom: 15px; }
-    .controls { margin-top: 30px; padding: 20px; background: #e0e0e0; border-radius: 10px; display: inline-block;}
+    
+    /* AirDrop 제목 부분 */
+    .header {
+      padding: 20px 0;
+      font-size: 22px;
+      font-weight: 600;
+      background: #f9f9f9;
+      color: #000;
+    }
+    
+    /* 사진이 뜨는 빈 공간 */
+    .image-area {
+      width: 100%;
+      height: 320px;
+      background: #ffffff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    /* 실제 뜰 사진 (처음엔 투명도 0으로 숨겨둠) */
+    .image-area img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0; 
+      transition: opacity 0.3s ease-in-out; /* 스르륵 나타나는 애니메이션 효과 */
+    }
+    
+    /* 하단 버튼 영역 */
+    .button-area {
+      display: flex;
+      border-top: 1px solid #d1d1d6;
+      background: #f9f9f9;
+    }
+    
+    .btn {
+      flex: 1;
+      padding: 16px 0;
+      font-size: 17px;
+      color: #007aff; /* 애플 특유의 파란색 */
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    .btn:active {
+      background: #e5e5ea; /* 클릭했을 때 살짝 회색되는 효과 */
+    }
+    
+    .decline { 
+      border-right: 1px solid #d1d1d6; 
+    }
   </style>
 </head>
 <body>
 
-  <!-- 1. 다운로드될 에어드랍 디자인 '틀' -->
-  <div id="airdrop-template">
-    <h3>AirDrop</h3>
-    <p id="text-display">"iPhone"님이 사진을<br>공유하려고 합니다.</p>
-    <img id="preview-image" src="https://via.placeholder.com/300" alt="미리보기 이미지">
-    <button style="padding: 10px 20px; border-radius: 20px; border: none; background: #007aff; color: white;">수락</button>
+  <div class="airdrop-box">
+    <div class="header">AirDrop</div>
+    
+    <div class="image-area">
+      <!-- ⭐️여기에 띄우고 싶은 사진의 주소를 넣으세요!⭐️ -->
+      <img id="target-image" src="https://images.unsplash.com/photo-1526045612212-70caf35c14df" alt="에어드랍 사진">
+    </div>
+    
+    <div class="button-area">
+      <div class="btn decline">Decline</div>
+      <div class="btn accept" onclick="acceptAirdrop()">Accept</div>
+    </div>
   </div>
 
-  <!-- 2. 쓸 때마다 수정하는 '조작부' -->
-  <div class="controls">
-    <label>텍스트 변경: <input type="text" id="text-input" placeholder="iPhone님이..."></label><br><br>
-    <label>사진 업로드: <input type="file" id="image-input" accept="image/*"></label><br><br>
-    <button onclick="downloadImage()">📸 이대로 사진 저장하기</button>
-  </div>
-
-  <!-- 3. 동작을 담당하는 자바스크립트 -->
   <script>
-    // 텍스트 실시간 변경 기능
-    document.getElementById('text-input').addEventListener('input', function() {
-      document.getElementById('text-display').innerText = this.value || '"iPhone"님이 사진을\n공유하려고 합니다.';
-    });
-
-    // 사진 실시간 변경 기능
-    document.getElementById('image-input').addEventListener('change', function(event) {
-      const reader = new FileReader();
-      reader.onload = function(){
-        document.getElementById('preview-image').src = reader.result;
-      };
-      if(event.target.files[0]) reader.readAsDataURL(event.target.files[0]);
-    });
-
-    // 화면 캡처 및 이미지 다운로드 기능
-    function downloadImage() {
-      const template = document.getElementById('airdrop-template');
-      html2canvas(template, { scale: 2 }).then(canvas => { // scale: 2는 고화질로 저장
-        const link = document.createElement('a');
-        link.download = 'my-airdrop.png'; // 저장될 파일 이름
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-      });
+    // Accept 버튼을 누르면 실행되는 마법
+    function acceptAirdrop() {
+      // 사진의 투명도를 1(100%)로 바꿔서 스르륵 나타나게 합니다.
+      document.getElementById('target-image').style.opacity = '1';
     }
   </script>
 
