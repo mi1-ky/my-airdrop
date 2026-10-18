@@ -67,7 +67,7 @@
     /* 2. 실제 움짤로 캡처될 영역 (사진과 똑같은 디자인!) */
     #gif-frame {
       width: 360px;
-      height: 480px; /* 전체 캔버스 크기 */
+      height: 482px; /* 정사각형 비율에 맞춰 높이 살짝 조절 */
       background: transparent;
       position: relative;
       border-radius: 20px; /* 전체 모서리 둥글게 */
@@ -85,6 +85,7 @@
       position: absolute;
       top: 0; left: 0;
       z-index: 10;
+      transform-origin: center center; /* 애니메이션 기준점 */
     }
 
     /* 상단 헤더 (AirDrop 글씨와 이름) */
@@ -110,15 +111,20 @@
 
     /* 중간 사진 영역 (틀 안의 사진) */
     .ad-image-container {
-      flex: 1; /* 남은 공간을 꽉 채움 */
+      width: 100%;
+      aspect-ratio: 1 / 1; /* ⭐️ 사진 비율을 완벽한 1:1 정사각형으로 고정! */
       overflow: hidden; /* 줌인 했을 때 튀어나가지 않게 */
       position: relative;
       background: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
     #ad-preview-image {
       width: 100%;
       height: 100%;
       object-fit: cover; /* 화면 비율에 맞게 꽉 채움 */
+      object-position: 50% 50%; /* 기본 위치 정중앙 */
       transform-origin: center center;
       transform: scale(1); /* 초기 줌 상태 */
     }
@@ -152,6 +158,7 @@
       top: 0; left: 0;
       z-index: 5;
       display: none; /* 숨김 */
+      transform-origin: center center;
     }
 
   </style>
@@ -172,6 +179,10 @@
     <div class="input-group">
       <label>3. 에어드랍 창 사진 확대(Zoom) 조절</label>
       <input type="range" id="zoom-slider" min="1" max="3" step="0.05" value="1">
+    </div>
+    <div class="input-group">
+      <label>4. 사진 상하 위치 조절 (위/아래) ↕️</label>
+      <input type="range" id="y-pos-slider" min="0" max="100" step="1" value="50">
     </div>
     <button class="btn-generate" id="generate-btn" onclick="startGifGeneration()">📸 이대로 움짤 만들기</button>
     <div id="loading-text">
@@ -227,6 +238,12 @@
       document.getElementById('ad-preview-image').style.transform = `scale(${this.value})`;
     });
 
+    // 4. 사진 상하 위치 조절 실시간 반영 (새로 추가됨!)
+    document.getElementById('y-pos-slider').addEventListener('input', function() {
+      // object-position의 Y축(세로) 퍼센티지를 조절하여 위아래로 움직임
+      document.getElementById('ad-preview-image').style.objectPosition = `50% ${this.value}%`;
+    });
+
     // 📸 대망의 움짤 촬영 및 생성 로직
     async function startGifGeneration() {
       if (!hasUploadedImage) {
@@ -265,10 +282,31 @@
         const clickFrameURL = await captureFrame();
         for(let i = 0; i < 3; i++) { framesData.push(clickFrameURL); }
 
-        // [장면 3] 에어드랍 UI 사라지고 전체 사진 등장! (약 1.5초)
-        airdropUi.style.display = 'none'; 
-        fullImage.style.display = 'block'; 
+        // [장면 3] ⭐️ 부드러운 화면 전환 효과 (Cross-fade & Scale)
+        fullImage.style.display = 'block';
+        fullImage.style.opacity = '0';
+        fullImage.style.transform = 'scale(1.05)'; // 살짝 커진 상태에서 작아지며 등장
 
+        for (let i = 1; i <= 8; i++) {
+          let progress = i / 8; // 0에서 1로 진행
+          
+          // 기존 에어드랍 창은 서서히 투명해지며 약간 뒤로 멀어지는 효과
+          airdropUi.style.opacity = (1 - progress).toString();
+          airdropUi.style.transform = `scale(${1 - (progress * 0.05)})`; 
+          
+          // 새로운 전체 사진은 서서히 선명해지며 제자리로 돌아오는 효과
+          fullImage.style.opacity = progress.toString();
+          fullImage.style.transform = `scale(${1.05 - (progress * 0.05)})`; 
+          
+          await new Promise(r => setTimeout(r, 20)); // 프레임 간격 대기
+          const transitionFrameURL = await captureFrame();
+          framesData.push(transitionFrameURL);
+        }
+
+        // [장면 4] 전체 사진 유지 (약 1.5초)
+        airdropUi.style.display = 'none'; 
+        fullImage.style.opacity = '1';
+        fullImage.style.transform = 'scale(1)';
         const fullImageFrameURL = await captureFrame();
         for(let i = 0; i < 15; i++) { framesData.push(fullImageFrameURL); } 
 
@@ -289,10 +327,14 @@
             alert("움짤 생성 중 에러가 발생했습니다. 새로고침 후 다시 시도해주세요.");
           }
           
-          // 모든 UI 원상 복구 (다음 촬영을 위해)
+          // 모든 UI 원상 복구 (다음 촬영을 위해 초기화)
           acceptBtn.style.backgroundColor = 'transparent';
           airdropUi.style.display = 'flex';
+          airdropUi.style.opacity = '1';
+          airdropUi.style.transform = 'scale(1)';
           fullImage.style.display = 'none';
+          fullImage.style.opacity = '1';
+          fullImage.style.transform = 'scale(1)';
           
           document.getElementById('generate-btn').style.display = 'block';
           document.getElementById('loading-text').style.display = 'none';
