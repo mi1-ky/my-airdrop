@@ -3,177 +3,104 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>에어드랍 움짤 자동 생성기</title>
+  <title>에어드랍 초고화질 영상 생성기</title>
   
-  <!-- 화면 캡처 및 움짤 생성 라이브러리 -->
+  <!-- 화면 캡처 라이브러리 (gifshot은 삭제하고 고화질 캡처만 사용합니다) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gifshot/0.3.2/gifshot.min.js"></script>
   
   <style>
     body {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      background-color: #e5e5ea;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      margin: 0;
-      padding: 40px 20px;
+      display: flex; flex-direction: column; align-items: center;
+      background-color: #e5e5ea; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0; padding: 40px 20px;
     }
 
-    /* 1. 조종석 (움짤에는 안 나옴) */
+    /* 1. 조종석 */
     .control-panel {
-      background: white;
-      padding: 24px;
-      border-radius: 16px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.1);
-      width: 100%;
-      max-width: 400px;
-      margin-bottom: 30px;
-      box-sizing: border-box;
+      background: white; padding: 24px; border-radius: 16px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.1); width: 100%; max-width: 400px;
+      margin-bottom: 30px; box-sizing: border-box;
     }
-    
     .control-panel h3 { margin: 0 0 20px 0; font-size: 18px; color: #333; text-align: center; }
     .input-group { margin-bottom: 18px; }
     .input-group label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #555; }
-    .input-group input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
-    .input-group input[type="file"] { width: 100%; font-size: 14px; }
+    .input-group input[type="text"], .input-group input[type="file"] { 
+      width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 14px; 
+    }
     .input-group input[type="range"] { width: 100%; margin-top: 5px; }
     
     .btn-generate {
-      width: 100%;
-      padding: 14px;
-      background: #007aff;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      margin-top: 10px;
-      transition: background 0.2s;
+      width: 100%; padding: 14px; background: #007aff; color: white;
+      border: none; border-radius: 10px; font-size: 16px; font-weight: bold;
+      cursor: pointer; margin-top: 10px; transition: background 0.2s;
     }
     .btn-generate:hover { background: #005bb5; }
     
     #loading-text {
-      display: none;
-      text-align: center;
-      color: #ff3b30;
-      font-weight: bold;
-      margin-top: 15px;
-      font-size: 14px;
-      line-height: 1.5;
+      display: none; text-align: center; color: #ff3b30; font-weight: bold;
+      margin-top: 15px; font-size: 14px; line-height: 1.5;
     }
 
-    /* 2. 실제 움짤로 캡처될 영역 (사진과 똑같은 디자인!) */
-    #gif-frame {
-      width: 360px;
-      height: 482px; /* 정사각형 비율에 맞춰 높이 살짝 조절 */
-      background: transparent;
-      position: relative;
-      border-radius: 20px; /* 전체 모서리 둥글게 */
-      overflow: hidden; /* 밖으로 튀어나가는 사진 자르기 */
+    /* 2. 실제 영상으로 녹화될 영역 */
+    #video-frame {
+      width: 360px; height: 482px;
+      background: #000; /* 전체화면 뜰 때 배경을 검은색으로(아이폰 갤러리 감성) */
+      position: relative; border-radius: 20px; overflow: hidden;
       box-shadow: 0 10px 30px rgba(0,0,0,0.15);
     }
 
-    /* 에어드랍 UI 본체 (수락 누르면 사라질 부분) */
+    /* 에어드랍 UI 본체 */
     #airdrop-ui {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      background: white;
-      position: absolute;
-      top: 0; left: 0;
-      z-index: 10;
-      transform-origin: center center; /* 애니메이션 기준점 */
+      width: 100%; height: 100%; display: flex; flex-direction: column;
+      background: white; position: absolute; top: 0; left: 0;
+      z-index: 10; transform-origin: center center;
     }
 
-    /* 상단 헤더 (AirDrop 글씨와 이름) */
     .ad-header {
-      background: #f5f5f5; /* 아주 연한 회색 */
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 22px 0 18px 0;
+      background: #f5f5f5; display: flex; flex-direction: column;
+      justify-content: center; align-items: center; padding: 22px 0 18px 0;
     }
-    .ad-header .title {
-      font-size: 26px;
-      font-weight: bold;
-      color: #000;
-      margin-bottom: 6px;
-      letter-spacing: -0.5px;
-    }
-    .ad-header .subtitle {
-      font-size: 15px;
-      color: #000;
-    }
+    .ad-header .title { font-size: 26px; font-weight: bold; color: #000; margin-bottom: 6px; letter-spacing: -0.5px; }
+    .ad-header .subtitle { font-size: 15px; color: #000; }
 
-    /* 중간 사진 영역 (틀 안의 사진) */
+    /* ⭐️ 사진 눌림 방지를 위해 img 태그 대신 background-image 사용 */
     .ad-image-container {
-      width: 100%;
-      aspect-ratio: 1 / 1; /* ⭐️ 사진 비율을 완벽한 1:1 정사각형으로 고정! */
-      overflow: hidden; /* 줌인 했을 때 튀어나가지 않게 */
-      position: relative;
-      background: #fff;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      width: 100%; aspect-ratio: 1 / 1; 
+      background: #fff; display: flex; justify-content: center; align-items: center; overflow: hidden;
     }
     #ad-preview-image {
-      width: 100%;
-      height: 100%;
-      object-fit: cover; /* 화면 비율에 맞게 꽉 채움 */
-      object-position: 50% 50%; /* 기본 위치 정중앙 */
-      transform-origin: center center;
-      transform: scale(1); /* 초기 줌 상태 */
+      width: 100%; height: 100%;
+      background-size: cover; /* 정사각형에 꽉 차게 */
+      background-position: 50% 50%; background-repeat: no-repeat;
+      transform: scale(1); /* 줌 기능용 */
     }
 
-    /* 하단 버튼 영역 */
-    .ad-footer {
-      height: 56px;
-      display: flex;
-      background: #f5f5f5;
-      border-top: 1px solid #e0e0e0;
-    }
-    .ad-btn {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 17px;
-      color: #007aff;
-      cursor: pointer;
-    }
-    .ad-btn.decline {
-      border-right: 1px solid #e0e0e0;
-    }
+    .ad-footer { height: 56px; display: flex; background: #f5f5f5; border-top: 1px solid #e0e0e0; }
+    .ad-btn { flex: 1; display: flex; justify-content: center; align-items: center; font-size: 17px; color: #007aff; cursor: pointer; }
+    .ad-btn.decline { border-right: 1px solid #e0e0e0; }
 
-    /* 수락 후 보여질 전체 화면 이미지 (처음엔 숨김) */
+    /* 수락 후 보여질 전체 화면 (마찬가지로 background-image 사용) */
     #fullscreen-image {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      position: absolute;
-      top: 0; left: 0;
-      z-index: 5;
-      display: none; /* 숨김 */
-      transform-origin: center center;
+      width: 100%; height: 100%;
+      background-size: contain; /* ⭐️ 원본 비율 유지, 절대 안 눌림! */
+      background-position: center center; background-repeat: no-repeat;
+      background-color: #000; /* 여백은 검은색으로 깔끔하게 */
+      position: absolute; top: 0; left: 0; z-index: 5;
+      display: none; transform-origin: center center;
     }
-
   </style>
 </head>
 <body>
 
   <!-- 조종석 -->
   <div class="control-panel">
-    <h3>⚙️ 에어드랍 상세 설정</h3>
+    <h3>⚙️ 에어드랍 상세 설정 (고화질 영상)</h3>
     <div class="input-group">
       <label>1. 보내는 사람 이름</label>
-      <input type="text" id="name-input" value="🐈‍⬛❤️" placeholder="이름이나 이모티콘을 입력하세요">
+      <input type="text" id="name-input" value="🐈‍⬛❤️" placeholder="이름이나 이모티콘">
     </div>
     <div class="input-group">
-      <label>2. 나타날 사진 업로드</label>
+      <label>2. 나타날 사진 업로드 (원본 화질 유지됨!)</label>
       <input type="file" id="image-input" accept="image/*">
     </div>
     <div class="input-group">
@@ -184,23 +111,23 @@
       <label>4. 사진 상하 위치 조절 (위/아래) ↕️</label>
       <input type="range" id="y-pos-slider" min="0" max="100" step="1" value="50">
     </div>
-    <button class="btn-generate" id="generate-btn" onclick="startGifGeneration()">📸 이대로 움짤 만들기</button>
+    <button class="btn-generate" id="generate-btn" onclick="startVideoGeneration()">🎬 이대로 고화질 영상 저장하기</button>
     <div id="loading-text">
-      움짤을 열심히 촬영하고 굽는 중입니다... 🏃‍♂️💨<br>
-      (약 5~10초 정도 걸리니 창을 닫지 마세요!)
+      고화질 렌더링 중입니다... 🏃‍♂️💨<br>
+      (약 10초 정도 소요됩니다. 창을 닫지 마세요!)
     </div>
   </div>
 
-  <!-- 촬영될 캔버스 영역 -->
-  <div id="gif-frame">
-    <!-- 상태 1: 에어드랍 창이 떠있는 상태 -->
+  <!-- 촬영될 프레임 영역 -->
+  <div id="video-frame">
     <div id="airdrop-ui">
       <div class="ad-header">
         <div class="title">AirDrop</div>
         <div class="subtitle"><span id="sender-name">🐈‍⬛❤️</span>님이 사진을 공유하려고 합니다.</div>
       </div>
       <div class="ad-image-container">
-        <img id="ad-preview-image" src="" alt="업로드된 사진">
+        <!-- img 태그 대신 div를 써서 비율이 찌그러지지 않게 방어! -->
+        <div id="ad-preview-image"></div>
       </div>
       <div class="ad-footer">
         <div class="ad-btn decline">Decline</div>
@@ -208,141 +135,162 @@
       </div>
     </div>
     
-    <!-- 상태 2: 수락 후 뜨는 전체 화면 -->
-    <img id="fullscreen-image" src="" alt="전체 사진">
+    <div id="fullscreen-image"></div>
   </div>
 
   <script>
     let hasUploadedImage = false;
 
-    // 1. 이름 실시간 반영
+    // 이름 반영
     document.getElementById('name-input').addEventListener('input', function() {
       document.getElementById('sender-name').innerText = this.value;
     });
 
-    // 2. 사진 업로드 시 실시간 반영 (미리보기 & 전체화면 둘 다)
+    // 사진 반영 (background-image로 넣어줌)
     document.getElementById('image-input').addEventListener('change', function(event) {
       if (event.target.files && event.target.files[0]) {
         const reader = new FileReader();
         reader.onload = function(e) {
-          document.getElementById('ad-preview-image').src = e.target.result;
-          document.getElementById('fullscreen-image').src = e.target.result;
+          const imgUrl = e.target.result;
+          document.getElementById('ad-preview-image').style.backgroundImage = `url('${imgUrl}')`;
+          document.getElementById('fullscreen-image').style.backgroundImage = `url('${imgUrl}')`;
           hasUploadedImage = true;
         };
         reader.readAsDataURL(event.target.files[0]);
       }
     });
 
-    // 3. 사진 확대(Zoom) 실시간 반영
+    // 줌 조절
     document.getElementById('zoom-slider').addEventListener('input', function() {
       document.getElementById('ad-preview-image').style.transform = `scale(${this.value})`;
     });
 
-    // 4. 사진 상하 위치 조절 실시간 반영 (새로 추가됨!)
+    // 상하 위치 조절
     document.getElementById('y-pos-slider').addEventListener('input', function() {
-      // object-position의 Y축(세로) 퍼센티지를 조절하여 위아래로 움직임
-      document.getElementById('ad-preview-image').style.objectPosition = `50% ${this.value}%`;
+      document.getElementById('ad-preview-image').style.backgroundPosition = `50% ${this.value}%`;
     });
 
-    // 📸 대망의 움짤 촬영 및 생성 로직
-    async function startGifGeneration() {
+    // 🎬 대망의 고화질 영상 녹화 로직 (GIF ➡️ MP4/WebM)
+    async function startVideoGeneration() {
       if (!hasUploadedImage) {
-        alert("먼저 움짤로 나타날 사진을 업로드해주세요!");
-        return;
+        alert("먼저 영상에 나올 사진을 업로드해주세요!"); return;
       }
 
-      // 로딩 텍스트 표시
       document.getElementById('generate-btn').style.display = 'none';
       document.getElementById('loading-text').style.display = 'block';
 
-      const gifFrame = document.getElementById('gif-frame');
+      const videoFrame = document.getElementById('video-frame');
       const airdropUi = document.getElementById('airdrop-ui');
       const acceptBtn = document.getElementById('accept-btn');
       const fullImage = document.getElementById('fullscreen-image');
       
-      const framesData = []; 
-
-      // 헬퍼 함수: 화면 찰칵 찍기
-      const captureFrame = async () => {
-        const canvas = await html2canvas(gifFrame, { 
-          scale: 1.5, // 화질
-          backgroundColor: null, 
-          logging: false 
-        });
-        return canvas.toDataURL('image/png');
-      };
+      // 초고화질 옵션 (scale: 3 은 해상도를 3배로 뻥튀기함)
+      const options = { scale: 3, useCORS: true, backgroundColor: '#000' };
 
       try {
-        // [장면 1] 기본 에어드랍 대기 상태 (약 1.2초)
-        const idleFrameURL = await captureFrame();
-        for(let i = 0; i < 12; i++) { framesData.push(idleFrameURL); }
+        // [1] 미리 각 장면들을 고화질 캔버스로 캡처해 둡니다 (속도 및 프레임 확보)
+        
+        // 씬 1: 기본 대기
+        const idleCanvas = await html2canvas(videoFrame, options);
+        
+        // 씬 2: 버튼 클릭
+        acceptBtn.style.backgroundColor = '#d1d1d6';
+        const clickCanvas = await html2canvas(videoFrame, options);
 
-        // [장면 2] 'Accept' 버튼 클릭 효과 (약 0.3초)
-        acceptBtn.style.backgroundColor = '#e5e5ea'; 
-        const clickFrameURL = await captureFrame();
-        for(let i = 0; i < 3; i++) { framesData.push(clickFrameURL); }
-
-        // [장면 3] ⭐️ 부드러운 화면 전환 효과 (Cross-fade & Scale)
+        // 씬 3: 트랜지션 (15장의 부드러운 전환 프레임)
+        const transitionCanvases = [];
         fullImage.style.display = 'block';
         fullImage.style.opacity = '0';
-        fullImage.style.transform = 'scale(1.05)'; // 살짝 커진 상태에서 작아지며 등장
-
-        for (let i = 1; i <= 8; i++) {
-          let progress = i / 8; // 0에서 1로 진행
+        fullImage.style.transform = 'scale(1.05)';
+        
+        for (let i = 1; i <= 15; i++) {
+          let p = i / 15;
+          airdropUi.style.opacity = (1 - p).toString();
+          airdropUi.style.transform = `scale(${1 - (p * 0.05)})`;
+          fullImage.style.opacity = p.toString();
+          fullImage.style.transform = `scale(${1.05 - (p * 0.05)})`;
           
-          // 기존 에어드랍 창은 서서히 투명해지며 약간 뒤로 멀어지는 효과
-          airdropUi.style.opacity = (1 - progress).toString();
-          airdropUi.style.transform = `scale(${1 - (progress * 0.05)})`; 
-          
-          // 새로운 전체 사진은 서서히 선명해지며 제자리로 돌아오는 효과
-          fullImage.style.opacity = progress.toString();
-          fullImage.style.transform = `scale(${1.05 - (progress * 0.05)})`; 
-          
-          await new Promise(r => setTimeout(r, 20)); // 프레임 간격 대기
-          const transitionFrameURL = await captureFrame();
-          framesData.push(transitionFrameURL);
+          await new Promise(r => setTimeout(r, 10)); // UI 렌더링 대기
+          transitionCanvases.push(await html2canvas(videoFrame, options));
         }
 
-        // [장면 4] 전체 사진 유지 (약 1.5초)
+        // 씬 4: 완료 (전체 화면)
         airdropUi.style.display = 'none'; 
         fullImage.style.opacity = '1';
         fullImage.style.transform = 'scale(1)';
-        const fullImageFrameURL = await captureFrame();
-        for(let i = 0; i < 15; i++) { framesData.push(fullImageFrameURL); } 
+        const finalCanvas = await html2canvas(videoFrame, options);
 
-        // 4. 찍어둔 사진들을 엮어서 하나의 GIF 파일로 합체!
-        gifshot.createGIF({
-          images: framesData,
-          interval: 0.1, 
-          gifWidth: gifFrame.offsetWidth,
-          gifHeight: gifFrame.offsetHeight
-        }, function(obj) {
-          if(!obj.error) {
-            // 완성된 파일 다운로드
-            const link = document.createElement('a');
-            link.download = 'airdrop-animation.gif';
-            link.href = obj.image;
-            link.click();
+        // [2] 캡처해둔 화면들을 동영상으로 굽기 시작! (MediaRecorder API)
+        const renderCanvas = document.createElement('canvas');
+        renderCanvas.width = idleCanvas.width;
+        renderCanvas.height = idleCanvas.height;
+        const ctx = renderCanvas.getContext('2d');
+
+        // 초당 30프레임 설정
+        const stream = renderCanvas.captureStream(30); 
+        
+        // 브라우저에 맞는 최적의 비디오 포맷 찾기 (MP4 우선)
+        let mimeType = 'video/mp4';
+        let ext = 'mp4';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          if (MediaRecorder.isTypeSupported('video/webm')) {
+            mimeType = 'video/webm'; ext = 'webm';
           } else {
-            alert("움짤 생성 중 에러가 발생했습니다. 새로고침 후 다시 시도해주세요.");
+            mimeType = ''; // 브라우저 기본값
           }
-          
-          // 모든 UI 원상 복구 (다음 촬영을 위해 초기화)
+        }
+
+        // 고화질 비트레이트 설정 (8Mbps)
+        const recOptions = mimeType ? { mimeType: mimeType, videoBitsPerSecond: 8000000 } : { videoBitsPerSecond: 8000000 };
+        const mediaRecorder = new MediaRecorder(stream, recOptions);
+        const chunks = [];
+
+        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(chunks, { type: mimeType || 'video/mp4' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `airdrop-hq-video.${ext}`; // 영상 파일로 다운로드!
+          link.click();
+
+          // UI 원상복구
           acceptBtn.style.backgroundColor = 'transparent';
-          airdropUi.style.display = 'flex';
-          airdropUi.style.opacity = '1';
-          airdropUi.style.transform = 'scale(1)';
-          fullImage.style.display = 'none';
-          fullImage.style.opacity = '1';
-          fullImage.style.transform = 'scale(1)';
+          airdropUi.style.display = 'flex'; airdropUi.style.opacity = '1'; airdropUi.style.transform = 'scale(1)';
+          fullImage.style.display = 'none'; fullImage.style.opacity = '1'; fullImage.style.transform = 'scale(1)';
           
           document.getElementById('generate-btn').style.display = 'block';
           document.getElementById('loading-text').style.display = 'none';
-        });
+        };
+
+        mediaRecorder.start();
+
+        // 캔버스에 프레임을 연속으로 그려주는 마법의 함수
+        const drawFrames = (canvasImage, count) => {
+          return new Promise(resolve => {
+            let drawn = 0;
+            const interval = setInterval(() => {
+              ctx.drawImage(canvasImage, 0, 0);
+              drawn++;
+              if (drawn >= count) { clearInterval(interval); resolve(); }
+            }, 1000 / 30); // 30fps
+          });
+        };
+
+        // 타이밍에 맞춰 순서대로 영상에 그리기
+        await drawFrames(idleCanvas, 30); // 대기 1초
+        await drawFrames(clickCanvas, 6); // 클릭 0.2초
+        for (let tCanvas of transitionCanvases) {
+          await drawFrames(tCanvas, 1); // 전환 이펙트
+        }
+        await drawFrames(finalCanvas, 45); // 완성 화면 1.5초
+
+        // 녹화 종료
+        mediaRecorder.stop();
 
       } catch (error) {
         console.error(error);
-        alert("캡처 중 문제가 발생했습니다.");
+        alert("영상 생성 중 에러가 발생했습니다. 브라우저를 업데이트하거나 새로고침 후 시도해주세요.");
         document.getElementById('generate-btn').style.display = 'block';
         document.getElementById('loading-text').style.display = 'none';
       }
