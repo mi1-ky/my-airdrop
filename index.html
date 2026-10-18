@@ -2,19 +2,37 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>에어드랍 움짤 만들기</title>
+  <title>내 맘대로 에어드랍 메이커</title>
   <style>
-    /* 배경 화면 설정 */
     body {
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
-      height: 100vh;
-      background-color: #e5e5ea; /* 깃허브 배경과 잘 어울리는 색 */
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f0f0f5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 50px 20px;
+      margin: 0;
     }
-    
-    /* 에어드랍 창 디자인 (보내주신 사진과 100% 똑같은 비율) */
+
+    /* 관리자 패널 (설정하는 곳) */
+    .control-panel {
+      background: white;
+      padding: 20px 30px;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      margin-bottom: 40px;
+      width: 100%;
+      max-width: 400px;
+    }
+    .control-panel h3 { margin-top: 0; color: #333; }
+    .input-group { margin-bottom: 15px; }
+    .input-group label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 5px; color: #555; }
+    .input-group input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
+    .input-group input[type="file"] { width: 100%; padding: 5px 0; }
+    .reset-btn { width: 100%; padding: 12px; background: #ff3b30; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+
+    /* ------------------------------------------------ */
+    /* 여기서부터 에어드랍 UI 부분 (캡처할 대상) */
     .airdrop-box {
       width: 320px;
       background: #ffffff;
@@ -22,9 +40,9 @@
       box-shadow: 0 10px 30px rgba(0,0,0,0.1);
       overflow: hidden;
       text-align: center;
+      position: relative;
     }
     
-    /* AirDrop 제목 부분 */
     .header {
       padding: 20px 0;
       font-size: 22px;
@@ -33,7 +51,6 @@
       color: #000;
     }
     
-    /* 사진이 뜨는 빈 공간 */
     .image-area {
       width: 100%;
       height: 320px;
@@ -41,18 +58,33 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      position: relative;
+    }
+
+    /* 사진 위에 덮이는 안내 문구 (추가됨!) */
+    .message-text {
+      position: absolute;
+      width: 80%;
+      font-size: 16px;
+      color: #333;
+      line-height: 1.4;
+      z-index: 10;
+      transition: opacity 0.3s ease-in-out;
     }
     
-    /* 실제 뜰 사진 (처음엔 투명도 0으로 숨겨둠) */
+    /* 띄워질 사진 */
     .image-area img {
       width: 100%;
       height: 100%;
       object-fit: cover;
-      opacity: 0; 
-      transition: opacity 0.3s ease-in-out; /* 스르륵 나타나는 애니메이션 효과 */
+      opacity: 0; /* 처음엔 투명하게 숨김 */
+      transition: opacity 0.3s ease-in-out; /* 부드럽게 나타나는 효과 */
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 20; /* 문구 위로 올라오게 설정 */
     }
     
-    /* 하단 버튼 영역 */
     .button-area {
       display: flex;
       border-top: 1px solid #d1d1d6;
@@ -63,43 +95,33 @@
       flex: 1;
       padding: 16px 0;
       font-size: 17px;
-      color: #007aff; /* 애플 특유의 파란색 */
+      color: #007aff;
       cursor: pointer;
       user-select: none;
     }
-    
-    .btn:active {
-      background: #e5e5ea; /* 클릭했을 때 살짝 회색되는 효과 */
-    }
-    
-    .decline { 
-      border-right: 1px solid #d1d1d6; 
-    }
+    .btn:active { background: #e5e5ea; }
+    .decline { border-right: 1px solid #d1d1d6; }
   </style>
 </head>
 <body>
 
-  <div class="airdrop-box">
+  <!-- 1. 사진과 문구를 수정하는 조종석 -->
+  <div class="control-panel">
+    <h3>⚙️ 에어드랍 설정</h3>
+    <div class="input-group">
+      <label>안내 문구 수정</label>
+      <input type="text" id="text-input" value="GitHub 님이 사진 1장을 공유하려고 합니다.">
+    </div>
+    <div class="input-group">
+      <label>나타날 사진 업로드 (내 컴퓨터에서 선택)</label>
+      <input type="file" id="image-input" accept="image/*">
+    </div>
+    <button class="reset-btn" onclick="resetAirdrop()">다시 처음으로 숨기기 🔄</button>
+  </div>
+
+  <!-- 2. 실제 화면 녹화를 뜰 에어드랍 디자인 -->
+  <div class="airdrop-box" id="capture-area">
     <div class="header">AirDrop</div>
     
     <div class="image-area">
-      <!-- ⭐️여기에 띄우고 싶은 사진의 주소를 넣으세요!⭐️ -->
-      <img id="target-image" src="https://images.unsplash.com/photo-1526045612212-70caf35c14df" alt="에어드랍 사진">
-    </div>
-    
-    <div class="button-area">
-      <div class="btn decline">Decline</div>
-      <div class="btn accept" onclick="acceptAirdrop()">Accept</div>
-    </div>
-  </div>
-
-  <script>
-    // Accept 버튼을 누르면 실행되는 마법
-    function acceptAirdrop() {
-      // 사진의 투명도를 1(100%)로 바꿔서 스르륵 나타나게 합니다.
-      document.getElementById('target-image').style.opacity = '1';
-    }
-  </script>
-
-</body>
-</html>
+      <!-- 조종석에서 바꾼 텍스트가 여기 반영
