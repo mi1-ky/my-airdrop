@@ -127,7 +127,7 @@
   }
 
   function drawContain() {
-    const s = Math.min(LW / img.width, LH / img.height);
+    const s = Math.max(LW / img.width, LH / img.height);
     const dw = img.width * s, dh = img.height * s;
     ctx.drawImage(img, (LW - dw) / 2, (LH - dh) / 2, dw, dh);
   }
